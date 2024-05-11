@@ -15,6 +15,17 @@ class Matrix {
 
     public:
 
+    size_nnt row_count() const {
+        return rows;
+    }
+
+    size_nnt col_count() const {
+        return cols;
+    }
+
+    real_nnt value(int r, int c) const {
+        return data[r][c];
+    }
     real_nnt& value(int r, int c) {
         return data[r][c];
     }
@@ -79,11 +90,11 @@ class Matrix {
         }
     }
 
-    Matrix multiply(const Matrix& other) {
+    Matrix multiply(const Matrix& other) const {
         return multiply(*this, other, 1.0, 1.0);
     }
 
-    Matrix transpose() {
+    Matrix transpose() const {
         Matrix res = Matrix(cols, rows);
         for (int i = 0; i < rows; i++) {
             for (int j = 0; j < cols; j++) {
@@ -123,7 +134,7 @@ class Matrix {
         }
     }
 
-    Matrix clone() {
+    Matrix clone() const {
         Matrix res(rows, cols);
 
         for (int i = 0; i < rows; i++) {

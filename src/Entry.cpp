@@ -10,9 +10,8 @@ int main() {
             a.value(i, j) = i + j;
         }
     }
-    auto b = a.transpose();
-//    a.print();
-//    b.print();
-    a.multiply(b).print("Mult");
+//    a.subtract(a);
+    a.add(a);
+    a.print();
     return 0;
 }
