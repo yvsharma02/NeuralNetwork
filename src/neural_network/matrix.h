@@ -3,6 +3,7 @@
 #include "types.h"
 #include <exception>
 #include <iostream>
+#include <stdlib.h>
 
 namespace NeuralNetwork {
 
@@ -62,6 +63,14 @@ class Matrix {
         return *this;
     }
 
+    void randomize() {
+        for (int i = 0; i < rows; i++) {
+            for (int j = 0; j < cols; j++) {
+                data[i][j] = ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) - 0.5f) * 2.0f / 10000.0f;
+            }
+        }
+    }
+
     void add(const Matrix& other, real_nnt other_scale_factor, real_nnt this_scale_factor) {
         if (other.cols != cols || other.rows != rows) {
             throw std::exception("Matrix dimensions mismatch");
@@ -92,6 +101,25 @@ class Matrix {
 
     Matrix multiply(const Matrix& other) const {
         return multiply(*this, other, 1.0, 1.0);
+    }
+
+    void apply_function(activation_func_nnt func) {
+        for (int i = 0; i < rows; i++) {
+            for (int j = 0; j < cols; j++) {
+                data[i][j] = func(data[i][j]);
+            }
+        }
+    }
+
+    void multiply_elementwise(const Matrix& other)  {
+        if (other.rows != rows || other.cols != cols) {
+            throw std::exception("Invalid matrix sizes.");
+        }
+        for (int i = 0; i < rows; i++) {
+            for (int j = 0; j < cols; j++) {
+                data[i][j] *= other.data[i][j];
+            }
+        }
     }
 
     Matrix transpose() const {
