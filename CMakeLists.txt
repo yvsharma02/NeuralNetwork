@@ -24,6 +24,8 @@ add_executable(${EXECUTABLE_NAME} src/Entry.cpp)
 
 target_sources(${EXECUTABLE_NAME} PRIVATE
 src/Entry.cpp
+src/reader/data_reader.h
+src/reader/mnist_reader_common.hpp
 )
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

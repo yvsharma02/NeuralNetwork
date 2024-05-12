@@ -1,17 +1,40 @@
 #include <iostream>
 
 #include "neural_network/matrix.h"
+#include "neural_network/neural_network.h"
+#include "reader/data_reader.h"
+
+using namespace NeuralNetwork;
 
 int main() {
-    NeuralNetwork::Matrix a(2, 3);
+    auto x = mnist::read_dataset();
 
-    for (int i = 0; i < 2; i++) {
-        for (int j = 0; j < 3; j++) {
-            a.value(i, j) = i + j;
+    std::vector<std::pair<Matrix, Matrix>> training_data;
+    std::vector<std::pair<Matrix, Matrix>> testing_data;
+
+    for (int i = 0; i < 20000; i++) {
+        Matrix ip = Matrix(784, 1);
+        Matrix op = Matrix(10, 1);
+        for (int j = 0; j < x.training_images[i].size(); j++) {
+            ip.value(j, 0) = (real_nnt) x.training_images[i][j] / 255;
         }
+        op.value(x.training_labels[i], 0) = 1;
+        training_data.push_back(std::pair(std::move(ip), std::move(op)));
     }
-//    a.subtract(a);
-    a.add(a);
-    a.print();
+
+    for (int i = 0; i < 10000; i++) {
+        Matrix ip = Matrix(784, 1);
+        Matrix op = Matrix(10, 1);
+        for (int j = 0; j < x.test_images[i].size(); j++) {
+            ip.value(j, 0) = (real_nnt)x.test_images[i][j] / 255;
+        }
+        op.value(x.test_labels[i], 0) = 1;
+//        op.print();
+        testing_data.push_back(std::pair(std::move(ip), std::move(op)));
+    }
+    Network nn(std::vector<size_nnt>({784, 20, 15, 10}), std::move(training_data), std::move(testing_data));
+    nn.train(10, 10);
+    nn.test();
+    
     return 0;
 }

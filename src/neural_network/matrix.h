@@ -31,6 +31,27 @@ class Matrix {
         return data[r][c];
     }
 
+    void zeroify() {
+        for (int i = 0; i < rows; i++) {
+            for (int j = 0; j < cols; j++) {
+                data[i][j] = 0;
+            }
+        }
+    }
+
+    void max_index(int& r, int& c) {
+        r = 0;
+        c = 0;
+        for (int i = 0; i < rows; i++) {
+            for (int j = 0; j < cols; j++) {
+                if (data[i][j] > data[r][c]) {
+                    r = i;
+                    c = j;
+                }
+            }
+        }
+    }
+
     Matrix(size_nnt rows, size_nnt cols) : rows(rows), cols(cols) {
         data = new real_nnt*[rows];
         for (int i = 0; i < rows; i++) {
