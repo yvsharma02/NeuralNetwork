@@ -6,14 +6,13 @@
 #include "types.h"
 #include "math.h"
 
-float ReLU(float f) {
+float sigmoid(float f) {
     return 1.0 / (1 + expf(-f));
 }
 
-float ReLUDerivative(float f) {
-    return ReLU(f) * (1 - ReLU(f));
+float sigmoid_derivative(float f) {
+    return sigmoid(f) * (1 - sigmoid(f));
 }
-
 
 namespace NeuralNetwork {
 
@@ -39,12 +38,12 @@ namespace NeuralNetwork {
         std::vector<std::pair<Matrix, Matrix>> training;
         std::vector<std::pair<Matrix, Matrix>> testing;
 
-        real_nnt learning_rate = 0.015;
+        real_nnt learning_rate;
         std::vector<Matrix> weight_gradient_acculumator;
         std::vector<Matrix> bias_gradient_accumulator;
 
         public:
-        Network(std::vector<size_nnt> layer_sizes, std::vector<std::pair<Matrix, Matrix>>&& training, std::vector<std::pair<Matrix, Matrix>>&& testing) : training(std::move(training)), testing(std::move(testing)) {
+        Network(std::vector<size_nnt> layer_sizes, std::vector<std::pair<Matrix, Matrix>>&& training, std::vector<std::pair<Matrix, Matrix>>&& testing, real_nnt learning_rate = 0.05) : training(std::move(training)), testing(std::move(testing)), learning_rate(learning_rate) {
             for (int i = 0; i < layer_sizes.size(); i++) {
                 activations.push_back(Matrix(layer_sizes[i], 1));
             }
@@ -54,8 +53,7 @@ namespace NeuralNetwork {
                 biases.push_back(Matrix(layer_sizes[i + 1], 1));
                 errors.push_back(Matrix(layer_sizes[i + 1], 1));
                 weights.push_back(Matrix(layer_sizes[i + 1], layer_sizes[i]));
-                (--weights.end())->randomize();
-//                (--weights.end())->print();
+                (--weights.end())->randomize(-0.75, 0.75);
                 weight_gradient.push_back(Matrix(layer_sizes[i + 1], layer_sizes[i]));
             }
 
@@ -84,14 +82,12 @@ namespace NeuralNetwork {
                     activations[0] = training[i].first.clone();
                     foward_pass();
                     errors[errors.size() - 1] = training[i].second.clone();
-//                    errors[errors.size() - 1].print("Actual");
                     errors[errors.size() - 1].subtract(activations[activations.size() - 1]);
-//                    activations[activations.size() - 1].print("Prediction");
-
+                    if (training.size() - i <= 10) {
+                        training[i].second.print("Actual");
+                        activations[activations.size() - 1].print("Prediction");
+                    }
                     backward_pass();
-//                    errors[errors.size() - 1].print("Error");
-
-//                    weight_gradient[2].print();
 
                     for (int j = 0; j < weight_gradient.size(); j++) {
                         weight_gradient_acculumator[j].add(weight_gradient[j], 1.0 / batch_size, 1.0);
@@ -117,7 +113,6 @@ namespace NeuralNetwork {
         }
 
         void test() {
-//            weights[weights.size() - 1].print("WM");
             int correct = 0;
             for (int i = 0; i < testing.size(); i++) {
                 activations[0] = testing[i].first.clone();
@@ -126,10 +121,8 @@ namespace NeuralNetwork {
                 int actual;
                 int predicted;
                 activations[activations.size() - 1].max_index(predicted, temp);
-//                activations[activations.size() - 1].print("Activations");
                 testing[i].second.max_index(actual, temp);
                 correct += actual == predicted ? 1 : 0;
-//                std::cout << "Predicted: " << predicted << "; Actual: " << actual << std::endl;
             }
             std::cout << "Correct: " << correct << "; Total: " << testing.size() << "; Accuracy: " << ((float)correct / testing.size()) * 100 << "%;";
         }
@@ -141,7 +134,7 @@ namespace NeuralNetwork {
                 z_activations[i - 1] = std::move(raw);
 
                 activations[i] = z_activations[i - 1].clone();
-                activations[i].apply_function(&ReLU);
+                activations[i].apply_function(&sigmoid);
             }
         }
 
@@ -149,19 +142,15 @@ namespace NeuralNetwork {
             for (int i = errors.size() - 2; i > 0; i--) {
                 errors[i] = weights[i + 1].transpose().multiply(errors[i + 1]);
                 auto derivative = z_activations[i].clone();
-                derivative.apply_function(ReLUDerivative);
+                derivative.apply_function(sigmoid_derivative);
                 errors[i].multiply_elementwise(derivative);
             }
-//            errors[2].print();
             for (int i = weights.size() - 1; i >= 0; i--) {
                 weight_gradient[i] = errors[i].multiply(activations[i].transpose());
             }
-//            weight_gradient[2].print("Gradient");
-            std::cout << std::endl;
         }
 
         void gradient_descent() {
-//            weight_gradient_acculumator[2].print("Accumulator");
             for (int i = 0; i < weights.size(); i++) {
                 weights[i].add(weight_gradient_acculumator[i], learning_rate, 1);
             }

@@ -98,10 +98,10 @@ class Matrix {
         return *this;
     }
 
-    void randomize() {
+    void randomize(float start, float end) {
         for (int i = 0; i < rows; i++) {
             for (int j = 0; j < cols; j++) {
-                data[i][j] = ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) - 0.5f) * 2.0f;
+                data[i][j] = start + (static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * (end - start);
             }
         }
     }

@@ -33,8 +33,8 @@ int main() {
 //        op.print();
         testing_data.push_back(std::pair<Matrix, Matrix>(std::move(ip), std::move(op)));
     }
-    Network nn(std::vector<size_nnt>({784, 20, 15, 10}), std::move(training_data), std::move(testing_data));
-    nn.train(15, 25);
+    Network nn(std::vector<size_nnt>({784, 20, 15, 10}), std::move(training_data), std::move(testing_data), 0.05);
+    nn.train(10, 25);
     nn.test();
     
     return 0;
