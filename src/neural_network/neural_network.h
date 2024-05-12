@@ -19,7 +19,7 @@ float sigmoid_derivative(float f) {
     return sigmoid(f) * (1 - sigmoid(f));
 }
 
-const char* read_kernel(const char* path = "src/kernels/backprop.cl") {
+const char* read_kernel(const char* path = "backprop.cl") {
     char buffer[10000];
     int c = 0;
 
@@ -29,13 +29,13 @@ const char* read_kernel(const char* path = "src/kernels/backprop.cl") {
         buffer[c++] = ch;
         ch = fgetc(file);
     }
-    buffer[c] = 0;
     fclose(file);
-    char* str = new char[c];
+    char* str = new char[c + 1];
     for (int i = 0; i < c; i++) {
         str[i] = buffer[i];
     }
-
+    str[c] = 0;
+    std::cout << str << std::endl;
     return str;
 }
 
@@ -144,18 +144,19 @@ namespace NeuralNetwork {
 
             auto program = clCreateProgramWithSource(context, 1, strings_arr, lens_arr, nullptr);
             cl_int res = clBuildProgram(program, 1, &device_id, nullptr, nullptr, nullptr);
-
+            cl_int err;
+            auto commandQueue = clCreateCommandQueue(context, device_id, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, &err);
+            
             while (iterations-- > 0) {
                 auto kernal = clCreateKernel(program, "train", nullptr);
                 int c = 0;
-                cl_int err;
                 
                 int weights_size = 0;
                 int biases_size = 0;
                 int activations_size = 0;
 
                 int *weights_sizes = new int[weights.size()];
-                int *layer_sizes = new int[weights.size()];
+                int *layer_sizes = new int[activations.size()];
 
                 for (int i = 0; i < weights.size(); i++) {
                     weights_sizes[i] = weights[i].row_count() * weights[i].col_count();
@@ -173,12 +174,12 @@ namespace NeuralNetwork {
                 int input_size = training[0].first.row_count();
                 int output_size = training[0].second.row_count();
 
-                auto input_buffer_d = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(real_nnt) * batch_size * input_size, nullptr, &err);
-                auto output_buffer_d = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(real_nnt) * batch_size * output_size, nullptr, &err);
-                auto weights_sizes_d = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(int) * weights.size(), nullptr, &err);
-                auto weights_d = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(float) * weights_size, nullptr, &err);
-                auto biases_d = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(float) * biases_size, nullptr, &err);
-                auto layer_sizes_d = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(int) * activations.size() * batch_size, nullptr, &err);
+                auto input_buffer_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(real_nnt) * batch_size * input_size, nullptr, &err);
+                auto output_buffer_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(real_nnt) * batch_size * output_size, nullptr, &err);
+                auto weights_sizes_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(int) * weights.size(), nullptr, &err);
+                auto weights_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * weights_size, nullptr, &err);
+                auto biases_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * biases_size, nullptr, &err);
+                auto layer_sizes_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(int) * activations.size() * batch_size, nullptr, &err);
                 auto activations_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * activations_size * batch_size, nullptr, &err);
                 auto z_activations_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * biases_size * batch_size, nullptr, &err);
                 auto errors_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * biases_size * batch_size, nullptr, &err);
@@ -186,13 +187,13 @@ namespace NeuralNetwork {
                 auto at_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * activations_size * batch_size, nullptr, &err);
                 auto weight_gradient_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * weights_size * batch_size, nullptr, &err);
 
-                auto commandQueue = clCreateCommandQueue(context, device_id, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, &err);
+                
                 for (int i = 0; i < batch_size; i++) {
                     auto ip_unrolled = training[c].first.unravel();
                     auto op_unrolled = training[c].second.unravel();
                     
-                    clEnqueueWriteBuffer(commandQueue, input_buffer_d, CL_TRUE, input_size * sizeof(float) * i, input_size * sizeof(float), ip_unrolled, 0, nullptr, nullptr);
-                    clEnqueueWriteBuffer(commandQueue, output_buffer_d, CL_TRUE, input_size * sizeof(float) * i, output_size * sizeof(float), op_unrolled, 0, nullptr, nullptr);
+                    err = clEnqueueWriteBuffer(commandQueue, input_buffer_d, CL_TRUE, input_size * sizeof(float) * i, input_size * sizeof(float), ip_unrolled, 0, nullptr, nullptr);
+                    err = clEnqueueWriteBuffer(commandQueue, output_buffer_d, CL_TRUE, output_size * sizeof(float) * i, output_size * sizeof(float), op_unrolled, 0, nullptr, nullptr);
                     delete [] ip_unrolled;
                     delete [] op_unrolled;
                 }
@@ -200,7 +201,7 @@ namespace NeuralNetwork {
                 int weight_sum = 0;
                 for (int i = 0; i < weights.size(); i++) {
                     auto w = weights[i].unravel();
-                    clEnqueueWriteBuffer(commandQueue, weights_d, CL_TRUE, weight_sum * sizeof(float), weights_sizes[i] * sizeof(float), w, 0, nullptr, nullptr);
+                    err = clEnqueueWriteBuffer(commandQueue, weights_d, CL_TRUE, weight_sum * sizeof(float), weights_sizes[i] * sizeof(float), w, 0, nullptr, nullptr);
                     weight_sum += weights_sizes[i];
                     delete[] w;
                 }
@@ -208,29 +209,28 @@ namespace NeuralNetwork {
                 int bias_sum = 0;
                 for (int i = 0; i < biases.size(); i++) {
                     auto w = biases[i].unravel();
-                    clEnqueueWriteBuffer(commandQueue, biases_d, CL_TRUE, bias_sum * sizeof(float), biases[i].row_count() * sizeof(float), w, 0, nullptr, nullptr);
+                    err = clEnqueueWriteBuffer(commandQueue, biases_d, CL_TRUE, bias_sum * sizeof(float), biases[i].row_count() * sizeof(float), w, 0, nullptr, nullptr);
                     bias_sum += biases[i].row_count();
                     delete[] w;
                 }
 
-                clEnqueueWriteBuffer(commandQueue, weights_sizes_d, CL_TRUE, 0, sizeof(int) * weights.size(), weights_sizes, 0, nullptr, nullptr);
-                clEnqueueWriteBuffer(commandQueue, layer_sizes_d, CL_TRUE, 0, sizeof(int) * activations.size(), layer_sizes, 0, nullptr, nullptr);
+                err = clEnqueueWriteBuffer(commandQueue, weights_sizes_d, CL_TRUE, 0, sizeof(int) * weights.size(), weights_sizes, 0, nullptr, nullptr);
+                err = clEnqueueWriteBuffer(commandQueue, layer_sizes_d, CL_TRUE, 0, sizeof(int) * activations.size(), layer_sizes, 0, nullptr, nullptr);
 
-
-                clSetKernelArg(kernal, 0, sizeof(void*), &input_buffer_d);
-                clSetKernelArg(kernal, 1, sizeof(void*), &output_buffer_d);
-                clSetKernelArg(kernal, 2, sizeof(void*), &weights_sizes_d);
-                clSetKernelArg(kernal, 3, sizeof(void*), &weights_d);
-                clSetKernelArg(kernal, 4, sizeof(void*), &biases_d);
+                err = clSetKernelArg(kernal, 0, sizeof(void*), &input_buffer_d);
+                err = clSetKernelArg(kernal, 1, sizeof(void*), &output_buffer_d);
+                err = clSetKernelArg(kernal, 2, sizeof(void*), &weights_sizes_d);
+                err = clSetKernelArg(kernal, 3, sizeof(void*), &weights_d);
+                err = clSetKernelArg(kernal, 4, sizeof(void*), &biases_d);
                 int _size = activations.size();
-                clSetKernelArg(kernal, 5, sizeof(int), &_size);
-                clSetKernelArg(kernal, 6, sizeof(void*), &layer_sizes_d);
-                clSetKernelArg(kernal, 7, sizeof(void*), &z_activations_d);
-                clSetKernelArg(kernal, 8, sizeof(void*), &activations_d);
-                clSetKernelArg(kernal, 9, sizeof(void*), &errors_d);
-                clSetKernelArg(kernal, 10, sizeof(void*), &wt_d);
-                clSetKernelArg(kernal, 11, sizeof(void*), &at_d);
-                clSetKernelArg(kernal, 12, sizeof(void*), &weight_gradient_d);
+                err = clSetKernelArg(kernal, 5, sizeof(int), &_size);
+                err = clSetKernelArg(kernal, 6, sizeof(void*), &layer_sizes_d);
+                err = clSetKernelArg(kernal, 7, sizeof(void*), &z_activations_d);
+                err = clSetKernelArg(kernal, 8, sizeof(void*), &activations_d);
+                err = clSetKernelArg(kernal, 9, sizeof(void*), &errors_d);
+                err = clSetKernelArg(kernal, 10, sizeof(void*), &wt_d);
+                err = clSetKernelArg(kernal, 11, sizeof(void*), &at_d);
+                err = clSetKernelArg(kernal, 12, sizeof(void*), &weight_gradient_d);
                 
                 cl_event event;
 
@@ -248,15 +248,29 @@ namespace NeuralNetwork {
 
                 weight_sum = 0;
                 for (int i = 0; i < weight_gradient_acculumator.size(); i++) {
-                    weight_gradient_acculumator[i] = Matrix(weight_gradient_h, 0, weights[i].row_count(), weights[i].col_count());
+                    weight_gradient_acculumator[i] = Matrix(weight_gradient_h, weight_sum, weights[i].row_count(), weights[i].col_count());
                     weight_sum += weights_sizes[i];
                 }
 
                 bias_sum = 0;
                 for (int i = 0; i < bias_gradient_accumulator.size(); i++) {
-                    bias_gradient_accumulator[i] = Matrix(bias_gradient_h, 0, biases[i].row_count(), biases[i].col_count());
-                    weight_sum += biases[i].row_count();
+                    bias_gradient_accumulator[i] = Matrix(bias_gradient_h, bias_sum, biases[i].row_count(), biases[i].col_count());
+                    bias_sum += biases[i].row_count();
                 }
+
+                err = clReleaseMemObject(input_buffer_d);
+                err = clReleaseMemObject(output_buffer_d);
+                err = clReleaseMemObject(weights_sizes_d);
+                err = clReleaseMemObject(weights_d);
+                err = clReleaseMemObject(biases_d);
+                err = clReleaseMemObject(layer_sizes_d);
+                err = clReleaseMemObject(z_activations_d);
+                err = clReleaseMemObject(activations_d);
+                err = clReleaseMemObject(errors_d);
+                err = clReleaseMemObject(wt_d);
+                err = clReleaseMemObject(at_d);
+                err = clReleaseMemObject(weight_gradient_d);
+                err = clReleaseKernel(kernal);
 
                 delete[] weight_gradient_h;
                 delete[] bias_gradient_h;
