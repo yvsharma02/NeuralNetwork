@@ -16,19 +16,20 @@ int main() {
     auto context = cl_wrapper::create_context(platforms[0].devices[0]);
     //    std::cout << "SIZE: ";
     //    std::cout << platforms[0].devices[0].max_local_group_size << std::endl;
-    const size_t ITEM_COUNT = 1024 * 1024;
-    const size_t BUFFER_SIZE = ITEM_COUNT * sizeof(int);
-    const size_t X = ITEM_COUNT;
+//    const size_t ITEM_COUNT = 1024 * 1024;
+//    const size_t BUFFER_SIZE = ITEM_COUNT * sizeof(int);
+//    const size_t X = ITEM_COUNT;
 
-    int* A_h = new int[ITEM_COUNT];
-    int* B_h = new int[ITEM_COUNT];
-    int* C_h = new int[ITEM_COUNT];
-
+//    int* A_h = new int[ITEM_COUNT];
+//    int* B_h = new int[ITEM_COUNT];
+//    int* C_h = new int[ITEM_COUNT];
+    /*
     for (int i = 0; i < ITEM_COUNT; i++) {
         A_h[i] = i;
         B_h[i] = X - i;
         C_h[i] = -2;
     }
+    */
 
     //    int A_h[] = { 2, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
     //    int B_h[] = { 10, 9, 8, 7, 6, 5, 4, 3, 2, 1 };

@@ -16,6 +16,33 @@ class Matrix {
 
     public:
 
+        Matrix(real_nnt* arr, int start, int rows, int cols) : rows(rows), cols(cols) {
+            data = new real_nnt*[rows];
+            int c = 0;
+            for (int i = 0; i < rows; i++) {
+                data[i] = new real_nnt[cols];
+                for (int j = 0; j < cols; j++) {
+                    data[i][j] = arr[c++];
+                }
+            }
+        }
+
+    real_nnt** get_raw_ptr() {
+        return data;
+    }
+
+    real_nnt* unravel() {
+        real_nnt *res = new real_nnt[rows * cols];
+        int c = 0;
+        for (int i = 0; i < rows; i++) {
+            for (int j = 0; j < cols; j++) {
+                res[c++] = data[i][j];
+            }
+        }
+
+        return res;
+    }
+
     size_nnt row_count() const {
         return rows;
     }

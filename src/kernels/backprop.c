@@ -1,3 +1,5 @@
+#define global 
+#define kernel
 const int BATCH_SIZE = 50;
 
 int index2D_to_1D(int i, int j, int cols) {
@@ -132,11 +134,11 @@ void kernel train(global const float* inputs,
 		bias_size += layer_sizes[i + 1];
 	}
     
-//	weights += sizeof(float) * weight_size * id;
+	weights += sizeof(float) * weight_size * id;
 	wt += sizeof(float) * weight_size * id;
 	weight_gradient += sizeof(float) * weight_size * id;
-//	biases += sizeof(float) * bias_size * id;
-	at += sizeof(float) * (bias_size + layer_sizes[0] - layer_sizes[layer_count - 1]) * id;
+	biases += sizeof(float) * bias_size * id;
+	at += sizeof(float) * bias_size * id;
 
 	z_activations += sizeof(float) * bias_size * id;
 	activations += sizeof(float) * (bias_size + layer_sizes[0]) * id;
