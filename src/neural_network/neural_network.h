@@ -6,6 +6,9 @@
 #include "types.h"
 #include "math.h"
 
+#include "cl/cl.h"
+#include "cl_wrapper/cl_helper.h"
+
 float sigmoid(float f) {
     return 1.0 / (1 + expf(-f));
 }
@@ -109,6 +112,12 @@ namespace NeuralNetwork {
                         }
                     }
                 }
+            }
+        }
+
+        void trainGPU(int iterations, int batch_size) {
+            while (iterations-- > 0) {
+
             }
         }
 
