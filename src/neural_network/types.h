@@ -1,8 +1,8 @@
 #include <vector>
 
 namespace NeuralNetwork {
-    typedef double real_nnt;
-    typedef size_t size_nnt;
+    typedef float real_nnt;
+    typedef int size_nnt;
     typedef int int_nnt;
 
     typedef float (*activation_func_nnt)(float);

@@ -4,14 +4,14 @@
 #include <exception>
 #include "matrix.h"
 #include "types.h"
-
+#include "math.h"
 
 float ReLU(float f) {
-    return f > 0 ? f : 0;
+    return 1.0 / (1 + expf(-f));
 }
 
 float ReLUDerivative(float f) {
-    return f > 0 ? 1 : 0;
+    return ReLU(f) * (1 - ReLU(f));
 }
 
 
@@ -39,7 +39,7 @@ namespace NeuralNetwork {
         std::vector<std::pair<Matrix, Matrix>> training;
         std::vector<std::pair<Matrix, Matrix>> testing;
 
-        real_nnt learning_rate = 0.01;
+        real_nnt learning_rate = 0.015;
         std::vector<Matrix> weight_gradient_acculumator;
         std::vector<Matrix> bias_gradient_accumulator;
 
@@ -55,30 +55,43 @@ namespace NeuralNetwork {
                 errors.push_back(Matrix(layer_sizes[i + 1], 1));
                 weights.push_back(Matrix(layer_sizes[i + 1], layer_sizes[i]));
                 (--weights.end())->randomize();
+//                (--weights.end())->print();
                 weight_gradient.push_back(Matrix(layer_sizes[i + 1], layer_sizes[i]));
+            }
+
+            for (int i = 0; i < weight_gradient.size(); i++) {
+                weight_gradient_acculumator.push_back(Matrix(weight_gradient[i].row_count(), weight_gradient[i].col_count()));
+            }
+
+            for (int i = 0; i < errors.size(); i++) {
+                bias_gradient_accumulator.push_back(Matrix(errors[i].row_count(), errors[i].col_count()));
             }
         }
 
         void train(int iterations, int batch_size) {
             while (iterations-- > 0) {
 
-                std::vector<Matrix> weight_gradient_acculumator;
-                std::vector<Matrix> bias_gradient_accumulator;
-
                 for (int i = 0; i < weight_gradient.size(); i++) {
-                    weight_gradient_acculumator[i] = Matrix(weight_gradient[i].row_count(), weight_gradient[i].col_count());
+                    weight_gradient_acculumator[i].zeroify();
                 }
 
                 for (int i = 0; i < errors.size(); i++) {
-                    bias_gradient_accumulator[i] = Matrix(errors[i].row_count(), errors[i].col_count());
+                    bias_gradient_accumulator[i].zeroify();
                 }
             
                 for (int i = 0; i < training.size(); i++) {
+                    std::cout << "Iteration: " << iterations << "; " << "Training: " << i << std::endl;
                     activations[0] = training[i].first.clone();
                     foward_pass();
                     errors[errors.size() - 1] = training[i].second.clone();
-                    errors[errors.size() - 1].subtract(activations[activations.size() - 1]); 
+//                    errors[errors.size() - 1].print("Actual");
+                    errors[errors.size() - 1].subtract(activations[activations.size() - 1]);
+//                    activations[activations.size() - 1].print("Prediction");
+
                     backward_pass();
+//                    errors[errors.size() - 1].print("Error");
+
+//                    weight_gradient[2].print();
 
                     for (int j = 0; j < weight_gradient.size(); j++) {
                         weight_gradient_acculumator[j].add(weight_gradient[j], 1.0 / batch_size, 1.0);
@@ -104,6 +117,7 @@ namespace NeuralNetwork {
         }
 
         void test() {
+//            weights[weights.size() - 1].print("WM");
             int correct = 0;
             for (int i = 0; i < testing.size(); i++) {
                 activations[0] = testing[i].first.clone();
@@ -112,15 +126,17 @@ namespace NeuralNetwork {
                 int actual;
                 int predicted;
                 activations[activations.size() - 1].max_index(predicted, temp);
+//                activations[activations.size() - 1].print("Activations");
                 testing[i].second.max_index(actual, temp);
                 correct += actual == predicted ? 1 : 0;
+//                std::cout << "Predicted: " << predicted << "; Actual: " << actual << std::endl;
             }
-            std::cout << "Correct: " << correct << "; Total" << testing.size() << "; Accuracy: " << (correct / testing.size()) << ";";
+            std::cout << "Correct: " << correct << "; Total: " << testing.size() << "; Accuracy: " << ((float)correct / testing.size()) * 100 << "%;";
         }
 
         void foward_pass() {
             for (int i = 1; i < activations.size(); i++) {
-                auto raw = weights[i - 1].multiply(activations[i - 1]);
+                Matrix raw = weights[i - 1].multiply(activations[i - 1]);
                 raw.add(biases[i - 1]);
                 z_activations[i - 1] = std::move(raw);
 
@@ -132,20 +148,25 @@ namespace NeuralNetwork {
         void backward_pass() {
             for (int i = errors.size() - 2; i > 0; i--) {
                 errors[i] = weights[i + 1].transpose().multiply(errors[i + 1]);
-                errors[i].multiply_elementwise(z_activations[i]);
+                auto derivative = z_activations[i].clone();
+                derivative.apply_function(ReLUDerivative);
+                errors[i].multiply_elementwise(derivative);
             }
-
+//            errors[2].print();
             for (int i = weights.size() - 1; i >= 0; i--) {
-                weight_gradient[i] = errors[i].multiply(activations[i]);
+                weight_gradient[i] = errors[i].multiply(activations[i].transpose());
             }
+//            weight_gradient[2].print("Gradient");
+            std::cout << std::endl;
         }
 
         void gradient_descent() {
+//            weight_gradient_acculumator[2].print("Accumulator");
             for (int i = 0; i < weights.size(); i++) {
-                weights[i].add(weight_gradient_acculumator[i], -learning_rate, 1);
+                weights[i].add(weight_gradient_acculumator[i], learning_rate, 1);
             }
             for (int i = 0; i < errors.size(); i++) {
-                biases[i].add(bias_gradient_accumulator[i], -learning_rate, 1);
+                biases[i].add(bias_gradient_accumulator[i], learning_rate, 1);
             }
         }
 

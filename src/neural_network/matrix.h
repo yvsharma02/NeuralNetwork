@@ -12,7 +12,7 @@ class Matrix {
     size_nnt rows;
     size_nnt cols;
 
-    real_nnt** data;
+    real_nnt** data = nullptr;
 
     public:
 
@@ -52,10 +52,15 @@ class Matrix {
         }
     }
 
+    Matrix() = delete;
+
     Matrix(size_nnt rows, size_nnt cols) : rows(rows), cols(cols) {
         data = new real_nnt*[rows];
         for (int i = 0; i < rows; i++) {
             data[i] = new real_nnt[cols]; 
+            for (int j = 0; j < cols; j++) {
+                data[i][j] = 0;
+            }
         }
     }
 
@@ -72,9 +77,18 @@ class Matrix {
     Matrix(Matrix&& move_from) : rows(move_from.rows), cols(move_from.cols) {
         this->data = move_from.data;
         move_from.data = nullptr;
+        move_from.rows = 0;
+        move_from.cols = 0;
     }
+    Matrix& operator=(Matrix&& move_from) noexcept {
 
-    Matrix& operator=(Matrix&& move_from) {
+        if (this->data != nullptr) {
+            for (int i = 0; i < rows; i++) {
+                delete[] data[i];
+            }
+            delete[] data;
+        }
+
         this->data = move_from.data;
         this->rows = move_from.rows;
         this->cols = move_from.cols;
@@ -87,7 +101,7 @@ class Matrix {
     void randomize() {
         for (int i = 0; i < rows; i++) {
             for (int j = 0; j < cols; j++) {
-                data[i][j] = ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) - 0.5f) * 2.0f / 10000.0f;
+                data[i][j] = ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) - 0.5f) * 2.0f;
             }
         }
     }
@@ -187,7 +201,6 @@ class Matrix {
         Matrix res(rows, cols);
 
         for (int i = 0; i < rows; i++) {
-            res.data[i] = new real_nnt[cols];
             for (int j = 0; j < cols; j++) {
                 res.data[i][j] = data[i][j];
             }
