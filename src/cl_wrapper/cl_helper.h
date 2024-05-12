@@ -9,7 +9,7 @@ namespace cl_wrapper {
     class DeviceDetail {
 
     public:
-        const cl_device_id device_id;
+        cl_device_id device_id;
         const cl_platform_id platform_id;
         const std::string device_name;
         const size_t max_local_group_size;

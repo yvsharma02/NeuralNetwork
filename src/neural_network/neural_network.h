@@ -144,9 +144,9 @@ namespace NeuralNetwork {
 
             auto program = clCreateProgramWithSource(context, 1, strings_arr, lens_arr, nullptr);
             cl_int res = clBuildProgram(program, 1, &device_id, nullptr, nullptr, nullptr);
-            auto kernal = clCreateKernel(program, "train", nullptr);
 
             while (iterations-- > 0) {
+                auto kernal = clCreateKernel(program, "train", nullptr);
                 int c = 0;
                 cl_int err;
                 

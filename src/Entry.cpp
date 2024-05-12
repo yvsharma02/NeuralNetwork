@@ -1,5 +1,3 @@
-#if DISABLED
-
 #include <iostream>
 
 #include "neural_network/matrix.h"
@@ -15,7 +13,7 @@ int main() {
     std::vector<std::pair<NeuralNetwork::Matrix, NeuralNetwork::Matrix>> training_data;
     std::vector<std::pair<NeuralNetwork::Matrix, NeuralNetwork::Matrix>> testing_data;
 
-    for (int i = 0; i < 60000; i++) {
+    for (int i = 0; i < 1024 * 10; i++) {
         NeuralNetwork::Matrix ip = NeuralNetwork::Matrix(784, 1);
         NeuralNetwork::Matrix op = NeuralNetwork::Matrix(10, 1);
         for (int j = 0; j < x.training_images[i].size(); j++) {
@@ -37,10 +35,13 @@ int main() {
         testing_data.push_back(std::pair<NeuralNetwork::Matrix, NeuralNetwork::Matrix>(std::move(ip), std::move(op)));
     }
     NeuralNetwork::Network nn(std::vector<NeuralNetwork::size_nnt>({784, 20, 20, 10}), std::move(training_data), std::move(testing_data), 0.1);
-    nn.train(10, 25);
+    
+
+    auto device = cl_wrapper::get_devices(cl_wrapper::get_platforms_ids()[0])[0];
+    auto context = cl_wrapper::create_context(device);
+    nn.trainGPU(10, 128, *context.context, device.device_id);
+//    nn.train(10, 25);
     nn.test();
     
     return 0;
 }
-
-#endif
