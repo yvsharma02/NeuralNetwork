@@ -22,7 +22,7 @@ class Matrix {
             for (int i = 0; i < rows; i++) {
                 data[i] = new real_nnt[cols];
                 for (int j = 0; j < cols; j++) {
-                    data[i][j] = arr[c++];
+                    data[i][j] = arr[start + c++];
                 }
             }
         }

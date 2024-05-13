@@ -4,10 +4,34 @@
 #include "neural_network/neural_network.h"
 #include "reader/data_reader.h"
 #include <cl/cl.h>
+// int index2D_to_1D(int i, int j, int cols) {
+//     return i * cols + j;
+// }
 
-
+// void transpose(float* a, int r, int c, float* res) {
+//     for (int i = 0; i < r; i++) {
+//         for (int j = 0; j < c; j++) {
+//             res[index2D_to_1D(j, i, r)] = a[index2D_to_1D(i, j, c)];
+//         }
+//     }
+// }
 
 int main() {
+
+    // NeuralNetwork::Matrix m(2, 3);
+    // for (int i = 0; i < 2; i++) {
+    //     for (int j = 0; j < 3; j++) {
+    //         m.value(i, j) = i + j;
+    //     }
+    // }
+    // auto og = m.unravel();
+    // float y[6];
+    // for (int i = 0; i < 6; i++) {
+    //     y[i] = og[i];
+    // }
+    // float res[6];
+    // transpose(og, 2, 3, res);
+
     auto x = mnist::read_dataset();
 
     std::vector<std::pair<NeuralNetwork::Matrix, NeuralNetwork::Matrix>> training_data;

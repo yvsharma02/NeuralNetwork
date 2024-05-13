@@ -19,7 +19,7 @@ float sigmoid_derivative(float f) {
     return sigmoid(f) * (1 - sigmoid(f));
 }
 
-const char* read_kernel(const char* path = "backprop.cl") {
+const char* read_kernel(const char* path = "../../../src/kernels/backprop.cl") {
     char buffer[10000];
     int c = 0;
 
@@ -35,7 +35,7 @@ const char* read_kernel(const char* path = "backprop.cl") {
         str[i] = buffer[i];
     }
     str[c] = 0;
-    std::cout << str << std::endl;
+//    std::cout << str << std::endl;
     return str;
 }
 
@@ -108,10 +108,10 @@ namespace NeuralNetwork {
                     foward_pass();
                     errors[errors.size() - 1] = training[i].second.clone();
                     errors[errors.size() - 1].subtract(activations[activations.size() - 1]);
-                    if (training.size() - i <= 10) {
-                        training[i].second.print("Actual");
-                        activations[activations.size() - 1].print("Prediction");
-                    }
+//                    if (training.size() - i <= 10) {
+//                        training[i].second.print("Actual");
+//                        activations[activations.size() - 1].print("Prediction");
+//                    }
                     backward_pass();
 
                     for (int j = 0; j < weight_gradient.size(); j++) {
@@ -148,6 +148,7 @@ namespace NeuralNetwork {
             auto commandQueue = clCreateCommandQueue(context, device_id, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, &err);
             
             while (iterations-- > 0) {
+                std::cout << "Iteration: " << iterations << std::endl;
                 auto kernal = clCreateKernel(program, "train", nullptr);
                 int c = 0;
                 
@@ -162,6 +163,7 @@ namespace NeuralNetwork {
                     weights_sizes[i] = weights[i].row_count() * weights[i].col_count();
                     weights_size += weights_sizes[i];
                 }
+
                 for (int i = 1; i < activations.size(); i++) {
                     biases_size += activations[i].row_count();
                 }
@@ -194,6 +196,10 @@ namespace NeuralNetwork {
                     
                     err = clEnqueueWriteBuffer(commandQueue, input_buffer_d, CL_TRUE, input_size * sizeof(float) * i, input_size * sizeof(float), ip_unrolled, 0, nullptr, nullptr);
                     err = clEnqueueWriteBuffer(commandQueue, output_buffer_d, CL_TRUE, output_size * sizeof(float) * i, output_size * sizeof(float), op_unrolled, 0, nullptr, nullptr);
+                    
+                    if (err != 0) {
+                        std::cout << ":(" << std::endl;
+                    }
                     delete [] ip_unrolled;
                     delete [] op_unrolled;
                 }
@@ -205,7 +211,7 @@ namespace NeuralNetwork {
                     weight_sum += weights_sizes[i];
                     delete[] w;
                 }
-
+//                weights[2].print("Normal");
                 int bias_sum = 0;
                 for (int i = 0; i < biases.size(); i++) {
                     auto w = biases[i].unravel();
@@ -235,27 +241,41 @@ namespace NeuralNetwork {
                 cl_event event;
 
                 size_t global_groups_size = batch_size;
-                const size_t local_groups_size = 64;
+                const size_t local_groups_size = 32;
                 //        err = clEnqueueTask (commandQueue, kernal, 0, nullptr, &event);
                 err = clEnqueueNDRangeKernel(commandQueue, kernal, 1, nullptr, &global_groups_size, &local_groups_size, 0, nullptr, &event);
                 clWaitForEvents(1, &event);
 
                 real_nnt* weight_gradient_h = new float[weights_size * batch_size];
                 real_nnt* bias_gradient_h = new float[biases_size * batch_size];
+                real_nnt* wt_h = new float[weights_size * batch_size];
                 
-                clEnqueueReadBuffer(commandQueue, weight_gradient_d, CL_TRUE, 0, weights_size * batch_size, weight_gradient_h, 0, nullptr, nullptr);
-                clEnqueueReadBuffer(commandQueue, errors_d, CL_TRUE, 0, biases_size * batch_size, bias_gradient_h, 0, nullptr, nullptr);
+                err = clEnqueueReadBuffer(commandQueue, weight_gradient_d, CL_TRUE, 0, weights_size * sizeof(float), weight_gradient_h, 0, nullptr, nullptr);
+                err = clEnqueueReadBuffer(commandQueue, biases_d, CL_TRUE, 0, biases_size  * sizeof(float), bias_gradient_h, 0, nullptr, nullptr);
+                err = clEnqueueReadBuffer(commandQueue, wt_d, CL_TRUE, 0, weights_size * sizeof(float), wt_h, 0, nullptr, nullptr);
+
+                int act_sum = 0;
+                for (int i = 0; i < weights.size(); i++) {
+                    if (i == 1) {
+                        Matrix(wt_h, act_sum, weights[i].col_count(), weights[i].row_count()).print("WT");
+                        weights[i].print("W");
+                    }
+                    act_sum += weights_sizes[i];
+                }
 
                 weight_sum = 0;
                 for (int i = 0; i < weight_gradient_acculumator.size(); i++) {
                     weight_gradient_acculumator[i] = Matrix(weight_gradient_h, weight_sum, weights[i].row_count(), weights[i].col_count());
                     weight_sum += weights_sizes[i];
                 }
+//                weight_gradient_acculumator[2].print("WGA");
+
 
                 bias_sum = 0;
                 for (int i = 0; i < bias_gradient_accumulator.size(); i++) {
                     bias_gradient_accumulator[i] = Matrix(bias_gradient_h, bias_sum, biases[i].row_count(), biases[i].col_count());
                     bias_sum += biases[i].row_count();
+//                    bias_gradient_accumulator[i].print("BGA");
                 }
 
                 err = clReleaseMemObject(input_buffer_d);
