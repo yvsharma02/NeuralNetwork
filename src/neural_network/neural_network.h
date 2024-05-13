@@ -251,31 +251,31 @@ namespace NeuralNetwork {
                 real_nnt* wt_h = new float[weights_size * batch_size];
                 
                 err = clEnqueueReadBuffer(commandQueue, weight_gradient_d, CL_TRUE, 0, weights_size * sizeof(float), weight_gradient_h, 0, nullptr, nullptr);
-                err = clEnqueueReadBuffer(commandQueue, biases_d, CL_TRUE, 0, biases_size  * sizeof(float), bias_gradient_h, 0, nullptr, nullptr);
+                err = clEnqueueReadBuffer(commandQueue, errors_d, CL_TRUE, 0, biases_size  * sizeof(float), bias_gradient_h, 0, nullptr, nullptr);
                 err = clEnqueueReadBuffer(commandQueue, wt_d, CL_TRUE, 0, weights_size * sizeof(float), wt_h, 0, nullptr, nullptr);
 
-                int act_sum = 0;
-                for (int i = 0; i < weights.size(); i++) {
-                    if (i == 1) {
-                        Matrix(wt_h, act_sum, weights[i].col_count(), weights[i].row_count()).print("WT");
-                        weights[i].print("W");
-                    }
-                    act_sum += weights_sizes[i];
-                }
+                // int act_sum = 0;
+                // for (int i = 0; i < weights.size(); i++) {
+                //     if (i == 1) {
+                //         Matrix(wt_h, act_sum, weights[i].col_count(), weights[i].row_count()).print("WT");
+                //         weights[i].print("W");
+                //     }
+                //     act_sum += weights_sizes[i];
+                // }
 
                 weight_sum = 0;
                 for (int i = 0; i < weight_gradient_acculumator.size(); i++) {
                     weight_gradient_acculumator[i] = Matrix(weight_gradient_h, weight_sum, weights[i].row_count(), weights[i].col_count());
                     weight_sum += weights_sizes[i];
                 }
-//                weight_gradient_acculumator[2].print("WGA");
+                weight_gradient_acculumator[2].print("WGA");
 
 
                 bias_sum = 0;
                 for (int i = 0; i < bias_gradient_accumulator.size(); i++) {
                     bias_gradient_accumulator[i] = Matrix(bias_gradient_h, bias_sum, biases[i].row_count(), biases[i].col_count());
                     bias_sum += biases[i].row_count();
-//                    bias_gradient_accumulator[i].print("BGA");
+                    bias_gradient_accumulator[i].print("BGA");
                 }
 
                 err = clReleaseMemObject(input_buffer_d);
