@@ -7,7 +7,7 @@ void multiply_matrix(global float* a, global float* b, global float* res, int re
 		for (int j = 0; j < res_c; j++) {
 			float accumulator = 0.0;
 			for (int k = 0; k < common_len; k++) {
-				accumulator += a[index2D_to_1D(i, k, res_r)] * b[index2D_to_1D(k, j, res_c)];
+				accumulator += a[index2D_to_1D(i, k, common_len)] * b[index2D_to_1D(k, j, res_c)];
 			}
 			res[i * res_c + j] = accumulator;
 		}
@@ -17,7 +17,7 @@ void multiply_matrix(global float* a, global float* b, global float* res, int re
 void transpose(global float* a, int r, int c, global float* res) {
 	for (int i = 0; i < r; i++) {
 		for (int j = 0; j < c; j++) {
-			res[index2D_to_1D(i, j, r)] = a[index2D_to_1D(j, i, r)];
+			res[j * r + i] = a[i * c + j];
 		}
 	}
 }
@@ -83,13 +83,13 @@ global float* get_bias_start(int layer, global int* layer_sizes, global float* s
 }
 
 float sigmoid(float x) {
-	return 1 / (1 + exp(-x));
+	return 1.0 / (1.0 + exp(-x));
 }
 
 void apply_activation(global float* mat, int r, int c) {
 	for (int i = 0; i < r; i++) {
 		for (int j = 0; j < c; j++) {
-			mat[index2D_to_1D(i, j, c)] = sigmoid(index2D_to_1D(i, j, c));
+			mat[index2D_to_1D(i, j, c)] = sigmoid(mat[index2D_to_1D(i, j, c)]);
 		}
 	}
 }
@@ -97,7 +97,7 @@ void apply_activation(global float* mat, int r, int c) {
 void apply_activation_derivative(global float* mat, int r, int c) {
 	for (int i = 0; i < r; i++) {
 		for (int j = 0; j < c; j++) {
-			mat[index2D_to_1D(i, j, c)] = sigmoid(index2D_to_1D(i, j, c)) * (1.0f - sigmoid(index2D_to_1D(i, j, c)));
+			mat[index2D_to_1D(i, j, c)] = sigmoid(mat[index2D_to_1D(i, j, c)]) * (1.0f - sigmoid(mat[index2D_to_1D(i, j, c)]));
 		}
 	}
 }
@@ -130,31 +130,38 @@ void kernel train(global float* inputs,
 		bias_size += layer_sizes[i + 1];
 	}
     
-//	weights += sizeof(float) * weight_size * id;
 	wt +=  weight_size * id;
 	weight_gradient +=  weight_size * id;
-//	biases += sizeof(float) * bias_size * id;
 	at += (bias_size + layer_sizes[0] - layer_sizes[layer_count - 1]) * id;
 
 	z_activations +=  bias_size * id;
 	activations +=  (bias_size + layer_sizes[0]) * id;
 	errors += (bias_size) * id;
 
+	// for (int i = 0; i < layer_sizes - 1; i ++) {
+	// 	for (int j = 0; j < weight_sizes[i]; j++) {
+	// 		get_weight_start(i, weight_sizes, weight_gradient)[j] = get_weight_start(i, weight_sizes, weights)[j];
+	// 	}
+	// }
+
 	//STEP 2: Forward Pass
 	for (int i = 0; i < layer_sizes[0]; i++) {
 		activations[i] = inputs[i];
 	}
-
+	for (int i = 0; i < 50; i++) {
+		get_bias_start(0, layer_sizes, z_activations)[i] = i;
+	}
 	for (int i = 1; i < layer_count; i++) {
 		multiply_matrix(get_weight_start(i - 1, weight_sizes, weights), get_activations_start(i - 1, layer_sizes, activations), 
 		get_bias_start(i - 1, layer_sizes, z_activations), layer_sizes[i], 1, layer_sizes[i - 1]);
 
 		add_matrix(get_bias_start(i - 1, layer_sizes, z_activations), get_bias_start(i - 1, layer_sizes, biases), layer_sizes[i], 1);
 		copy_matrix(get_activations_start(i, layer_sizes, activations), get_bias_start(i - 1, layer_sizes, z_activations), layer_sizes[i], 1);
+		// Z Values are same, but Activations are different?????
 		apply_activation(get_activations_start(i, layer_sizes, activations), layer_sizes[i], 1);
 	}
 
-	//STEP 3: Backpropogation
+//	STEP 3: Backpropogation
     copy_matrix(get_bias_start(layer_count - 2, layer_sizes, errors), outputs, layer_sizes[layer_count - 1], 1);
     sub_matrix(get_bias_start(layer_count - 2, layer_sizes, errors), get_activations_start(layer_count - 1, layer_sizes, activations), layer_sizes[layer_count - 1], 1);
 	
@@ -169,8 +176,8 @@ void kernel train(global float* inputs,
 		// for (int j = 0; j < layer_sizes[i]; j++) {
 		// 	get_activations_start(i, layer_sizes, activations)[index2D_to_1D()]
 		// }
-		// transpose(get_activations_start(i, layer_sizes, activations), layer_sizes[i], 1, get_activations_start(i, layer_sizes, at));
-		multiply_matrix(get_bias_start(i, layer_sizes, errors), get_activations_start(i, layer_sizes, activations),
+		transpose(get_activations_start(i, layer_sizes, activations), layer_sizes[i], 1, get_activations_start(i, layer_sizes, at));
+		multiply_matrix(get_bias_start(i, layer_sizes, errors), get_activations_start(i, layer_sizes, at),
       	get_weight_start(i, weight_sizes, weight_gradient), layer_sizes[i + 1], layer_sizes[i], 1);
 	}
 }

@@ -128,7 +128,8 @@ class Matrix {
     void randomize(float start, float end) {
         for (int i = 0; i < rows; i++) {
             for (int j = 0; j < cols; j++) {
-                data[i][j] = start + (static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * (end - start);
+//                data[i][j] = start + (static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * (end - start);
+                data[i][j] = start + (end - start) / 2.0;
             }
         }
     }

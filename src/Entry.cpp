@@ -4,33 +4,74 @@
 #include "neural_network/neural_network.h"
 #include "reader/data_reader.h"
 #include <cl/cl.h>
-// int index2D_to_1D(int i, int j, int cols) {
-//     return i * cols + j;
+ int index2D_to_1D(int i, int j, int cols) {
+     return i * cols + j;
+ }
+// int index1D_to_2D(int x, int cols) {
+//     return (x / cols) + (x % cols);
 // }
+
+/*
+
+ABC
+DEF
+GHI
+JKL
+ABCDEFGHIJKL
+
+ADGJ
+BEHK
+CFIL
+ADGJBEHKCFIL
+
+*/
 
 // void transpose(float* a, int r, int c, float* res) {
 //     for (int i = 0; i < r; i++) {
 //         for (int j = 0; j < c; j++) {
-//             res[index2D_to_1D(j, i, r)] = a[index2D_to_1D(i, j, c)];
+//             res[j * r + i] = a[i * c + j];
+//         }
+//     }
+// }
+
+// void multiply_matrix(float* a, float* b, float* res, int res_r, int res_c, int common_len) {
+//     for (int i = 0; i < res_r; i++) {
+//         for (int j = 0; j < res_c; j++) {
+//             float accumulator = 0.0;
+//             for (int k = 0; k < common_len; k++) {
+//                 accumulator += a[index2D_to_1D(i, k, common_len)] * b[index2D_to_1D(k, j, res_c)];
+//             }
+//             res[i * res_c + j] = accumulator;
 //         }
 //     }
 // }
 
 int main() {
-
+    // int ll = 0;
     // NeuralNetwork::Matrix m(2, 3);
     // for (int i = 0; i < 2; i++) {
     //     for (int j = 0; j < 3; j++) {
-    //         m.value(i, j) = i + j;
+    //         m.value(i, j) = ll++;;
     //     }
     // }
+    // auto n = m.transpose();
+    // int km[6];
+    // int kn[6];
+    // for (int i = 0; i < 6; i++) {
+    //     km[i] = m.unravel()[i];
+    //     kn[i] = n.unravel()[i];
+    // }
+
+    // float res[4];
+    // multiply_matrix(m.unravel(), n.unravel(), res, 2, 2, 3);
+
     // auto og = m.unravel();
     // float y[6];
     // for (int i = 0; i < 6; i++) {
     //     y[i] = og[i];
     // }
     // float res[6];
-    // transpose(og, 2, 3, res);
+    // transpose(y, 2, 3, res);
 
     auto x = mnist::read_dataset();
 
@@ -63,7 +104,7 @@ int main() {
 
     auto device = cl_wrapper::get_devices(cl_wrapper::get_platforms_ids()[0])[0];
     auto context = cl_wrapper::create_context(device);
-    nn.trainGPU(1, 128, *context.context, device.device_id);
+    nn.trainGPU(10, 128, *context.context, device.device_id);
 //    nn.train(10, 128);
     nn.test();
     
