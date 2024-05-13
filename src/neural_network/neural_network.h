@@ -138,7 +138,6 @@ namespace NeuralNetwork {
         }
 
         void trainGPU(int iterations, int batch_size, cl_context& context, cl_device_id& device_id) {
-
             const char* strings_arr[] = { read_kernel() };
             size_t lens_arr[] = { strlen(strings_arr[0]) };
 
@@ -147,153 +146,156 @@ namespace NeuralNetwork {
             cl_int err;
             auto commandQueue = clCreateCommandQueue(context, device_id, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, &err);
             
-            while (iterations-- > 0) {
+            int weights_size = 0;
+            int biases_size = 0;
+            int activations_size = 0;
 
-                for (int i = 0; i < weight_gradient_acculumator.size(); i++) {
-                    weight_gradient_acculumator[i].zeroify();
-                }
-                for (int i = 0; i < bias_gradient_accumulator.size(); i++) {
-                    bias_gradient_accumulator[i].zeroify();
-                }
+            int* weights_sizes = new int[weights.size()];
+            int* layer_sizes = new int[activations.size()];
 
-                std::cout << "Iteration: " << iterations << std::endl;
-                auto kernal = clCreateKernel(program, "train", nullptr);
-                int c = 0;
-                
-                int weights_size = 0;
-                int biases_size = 0;
-                int activations_size = 0;
-
-                int *weights_sizes = new int[weights.size()];
-                int *layer_sizes = new int[activations.size()];
-
-                for (int i = 0; i < weights.size(); i++) {
-                    weights_sizes[i] = weights[i].row_count() * weights[i].col_count();
-                    weights_size += weights_sizes[i];
-                }
-
-                for (int i = 1; i < activations.size(); i++) {
-                    biases_size += activations[i].row_count();
-                }
-                activations_size += biases_size + activations[0].row_count();
-
-                for (int i = 0; i < activations.size(); i++) {
-                    layer_sizes[i] = activations[i].row_count();
-                }
-
-                int input_size = training[0].first.row_count();
-                int output_size = training[0].second.row_count();
-
-                auto input_buffer_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(real_nnt) * batch_size * input_size, nullptr, &err);
-                auto output_buffer_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(real_nnt) * batch_size * output_size, nullptr, &err);
-                auto weights_sizes_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(int) * weights.size(), nullptr, &err);
-                auto weights_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * weights_size, nullptr, &err);
-                auto biases_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * biases_size, nullptr, &err);
-                auto layer_sizes_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(int) * activations.size() * batch_size, nullptr, &err);
-                auto activations_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * activations_size * batch_size, nullptr, &err);
-                auto z_activations_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * biases_size * batch_size, nullptr, &err);
-                auto errors_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * biases_size * batch_size, nullptr, &err);
-                auto wt_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * weights_size * batch_size, nullptr, &err);
-                auto at_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * (activations_size - layer_sizes[activations.size() - 1]) * batch_size, nullptr, &err);
-                auto weight_gradient_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * weights_size * batch_size, nullptr, &err);
-
-                
-                for (int i = 0; i < batch_size; i++) {
-                    auto ip_unrolled = training[c].first.unravel();
-                    auto op_unrolled = training[c].second.unravel();
-                    
-                    err = clEnqueueWriteBuffer(commandQueue, input_buffer_d, CL_TRUE, input_size * sizeof(float) * i, input_size * sizeof(float), ip_unrolled, 0, nullptr, nullptr);
-                    err = clEnqueueWriteBuffer(commandQueue, output_buffer_d, CL_TRUE, output_size * sizeof(float) * i, output_size * sizeof(float), op_unrolled, 0, nullptr, nullptr);
-                    
-                    if (err != 0) {
-                        std::cout << ":(" << std::endl;
-                    }
-                    delete [] ip_unrolled;
-                    delete [] op_unrolled;
-                }
-
-                int weight_sum = 0;
-                for (int i = 0; i < weights.size(); i++) {
-                    auto w = weights[i].unravel();
-                    err = clEnqueueWriteBuffer(commandQueue, weights_d, CL_TRUE, weight_sum * sizeof(float), weights_sizes[i] * sizeof(float), w, 0, nullptr, nullptr);
-                    weight_sum += weights_sizes[i];
-                    delete[] w;
-                }
-//                weights[2].print("Normal");
-                int bias_sum = 0;
-                for (int i = 0; i < biases.size(); i++) {
-                    auto w = biases[i].unravel();
-                    err = clEnqueueWriteBuffer(commandQueue, biases_d, CL_TRUE, bias_sum * sizeof(float), biases[i].row_count() * sizeof(float), w, 0, nullptr, nullptr);
-                    bias_sum += biases[i].row_count();
-                    delete[] w;
-                }
-
-                err = clEnqueueWriteBuffer(commandQueue, weights_sizes_d, CL_TRUE, 0, sizeof(int) * weights.size(), weights_sizes, 0, nullptr, nullptr);
-                err = clEnqueueWriteBuffer(commandQueue, layer_sizes_d, CL_TRUE, 0, sizeof(int) * activations.size(), layer_sizes, 0, nullptr, nullptr);
-
-                err = clSetKernelArg(kernal, 0, sizeof(void*), &input_buffer_d);
-                err = clSetKernelArg(kernal, 1, sizeof(void*), &output_buffer_d);
-                err = clSetKernelArg(kernal, 2, sizeof(void*), &weights_sizes_d);
-                err = clSetKernelArg(kernal, 3, sizeof(void*), &weights_d);
-                err = clSetKernelArg(kernal, 4, sizeof(void*), &biases_d);
-                int _size = activations.size();
-                err = clSetKernelArg(kernal, 5, sizeof(int), &_size);
-                err = clSetKernelArg(kernal, 6, sizeof(void*), &layer_sizes_d);
-                err = clSetKernelArg(kernal, 7, sizeof(void*), &z_activations_d);
-                err = clSetKernelArg(kernal, 8, sizeof(void*), &activations_d);
-                err = clSetKernelArg(kernal, 9, sizeof(void*), &errors_d);
-                err = clSetKernelArg(kernal, 10, sizeof(void*), &wt_d);
-                err = clSetKernelArg(kernal, 11, sizeof(void*), &at_d);
-                err = clSetKernelArg(kernal, 12, sizeof(void*), &weight_gradient_d);
-                
-                cl_event event;
-
-                size_t global_groups_size = batch_size;
-                const size_t local_groups_size = 32;
-                //        err = clEnqueueTask (commandQueue, kernal, 0, nullptr, &event);
-                err = clEnqueueNDRangeKernel(commandQueue, kernal, 1, nullptr, &global_groups_size, &local_groups_size, 0, nullptr, &event);
-                clWaitForEvents(1, &event);
-
-                real_nnt* weight_gradient_h = new float[weights_size * batch_size];
-                real_nnt* bias_gradient_h = new float[biases_size * batch_size];
-                real_nnt* at_h = new float[weights_size * batch_size];
-                
-                err = clEnqueueReadBuffer(commandQueue, weight_gradient_d, CL_TRUE, 0, weights_size * sizeof(float), weight_gradient_h, 0, nullptr, nullptr);
-                err = clEnqueueReadBuffer(commandQueue, errors_d, CL_TRUE, 0, biases_size  * sizeof(float), bias_gradient_h, 0, nullptr, nullptr);
-
-                weight_sum = 0;
-                for (int i = 0; i < weight_gradient_acculumator.size(); i++) {
-                    weight_gradient_acculumator[i].add(Matrix(weight_gradient_h, weight_sum, weights[i].row_count(), weights[i].col_count()));
-                    weight_sum += weights_sizes[i];
-                }
-
-                bias_sum = 0;
-                for (int i = 0; i < bias_gradient_accumulator.size(); i++) {
-                    bias_gradient_accumulator[i].add(Matrix(bias_gradient_h, bias_sum, biases[i].row_count(), biases[i].col_count()));
-                    bias_sum += biases[i].row_count();
-                }
-
-                err = clReleaseMemObject(input_buffer_d);
-                err = clReleaseMemObject(output_buffer_d);
-                err = clReleaseMemObject(weights_sizes_d);
-                err = clReleaseMemObject(weights_d);
-                err = clReleaseMemObject(biases_d);
-                err = clReleaseMemObject(layer_sizes_d);
-                err = clReleaseMemObject(z_activations_d);
-                err = clReleaseMemObject(activations_d);
-                err = clReleaseMemObject(errors_d);
-                err = clReleaseMemObject(wt_d);
-                err = clReleaseMemObject(at_d);
-                err = clReleaseMemObject(weight_gradient_d);
-                err = clReleaseKernel(kernal);
-
-                gradient_descent();
-
-                delete[] weight_gradient_h;
-                delete[] bias_gradient_h;
-                delete[] weights_sizes;
-                delete[] layer_sizes;
+            for (int i = 0; i < weights.size(); i++) {
+                weights_sizes[i] = weights[i].row_count() * weights[i].col_count();
+                weights_size += weights_sizes[i];
             }
+
+            for (int i = 1; i < activations.size(); i++) {
+                biases_size += activations[i].row_count();
+            }
+            activations_size += biases_size + activations[0].row_count();
+
+            for (int i = 0; i < activations.size(); i++) {
+                layer_sizes[i] = activations[i].row_count();
+            }
+
+            int input_size = training[0].first.row_count();
+            int output_size = training[0].second.row_count();
+
+            while (iterations-- > 0) {
+//                std::cout << "Iteration: " << iterations << std::endl;
+                for (int l = 0; l < training.size() / batch_size; l++) {
+                    std::cout << "Iteration: " << iterations << "; Batch: " << l << std::endl;
+                    for (int i = 0; i < weight_gradient_acculumator.size(); i++) {
+                        weight_gradient_acculumator[i].zeroify();
+                    }
+                    for (int i = 0; i < bias_gradient_accumulator.size(); i++) {
+                        bias_gradient_accumulator[i].zeroify();
+                    }
+
+                    auto kernal = clCreateKernel(program, "train", nullptr);
+
+                    auto input_buffer_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(real_nnt) * batch_size * input_size, nullptr, &err);
+                    auto output_buffer_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(real_nnt) * batch_size * output_size, nullptr, &err);
+                    auto weights_sizes_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(int) * weights.size(), nullptr, &err);
+                    auto weights_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * weights_size, nullptr, &err);
+                    auto biases_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * biases_size, nullptr, &err);
+                    auto layer_sizes_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(int) * activations.size() * batch_size, nullptr, &err);
+                    auto activations_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * activations_size * batch_size, nullptr, &err);
+                    auto z_activations_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * biases_size * batch_size, nullptr, &err);
+                    auto errors_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * biases_size * batch_size, nullptr, &err);
+                    auto wt_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * weights_size * batch_size, nullptr, &err);
+                    auto at_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * (activations_size - layer_sizes[activations.size() - 1]) * batch_size, nullptr, &err);
+                    auto weight_gradient_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * weights_size * batch_size, nullptr, &err);
+
+
+                    for (int i = 0; i < batch_size; i++) {
+                        auto ip_unrolled = training[l * batch_size + i].first.unravel();
+                        auto op_unrolled = training[l * batch_size + i].second.unravel();
+
+                        err = clEnqueueWriteBuffer(commandQueue, input_buffer_d, CL_TRUE, input_size * sizeof(float) * i, input_size * sizeof(float), ip_unrolled, 0, nullptr, nullptr);
+                        err = clEnqueueWriteBuffer(commandQueue, output_buffer_d, CL_TRUE, output_size * sizeof(float) * i, output_size * sizeof(float), op_unrolled, 0, nullptr, nullptr);
+
+                        if (err != 0) {
+                            std::cout << ":(" << std::endl;
+                        }
+                        delete[] ip_unrolled;
+                        delete[] op_unrolled;
+                    }
+
+                    int weight_sum = 0;
+                    for (int i = 0; i < weights.size(); i++) {
+                        auto w = weights[i].unravel();
+                        err = clEnqueueWriteBuffer(commandQueue, weights_d, CL_TRUE, weight_sum * sizeof(float), weights_sizes[i] * sizeof(float), w, 0, nullptr, nullptr);
+                        weight_sum += weights_sizes[i];
+                        delete[] w;
+                    }
+                    //                weights[2].print("Normal");
+                    int bias_sum = 0;
+                    for (int i = 0; i < biases.size(); i++) {
+                        auto w = biases[i].unravel();
+                        err = clEnqueueWriteBuffer(commandQueue, biases_d, CL_TRUE, bias_sum * sizeof(float), biases[i].row_count() * sizeof(float), w, 0, nullptr, nullptr);
+                        bias_sum += biases[i].row_count();
+                        delete[] w;
+                    }
+
+                    err = clEnqueueWriteBuffer(commandQueue, weights_sizes_d, CL_TRUE, 0, sizeof(int) * weights.size(), weights_sizes, 0, nullptr, nullptr);
+                    err = clEnqueueWriteBuffer(commandQueue, layer_sizes_d, CL_TRUE, 0, sizeof(int) * activations.size(), layer_sizes, 0, nullptr, nullptr);
+
+                    err = clSetKernelArg(kernal, 0, sizeof(void*), &input_buffer_d);
+                    err = clSetKernelArg(kernal, 1, sizeof(void*), &output_buffer_d);
+                    err = clSetKernelArg(kernal, 2, sizeof(void*), &weights_sizes_d);
+                    err = clSetKernelArg(kernal, 3, sizeof(void*), &weights_d);
+                    err = clSetKernelArg(kernal, 4, sizeof(void*), &biases_d);
+                    int _size = activations.size();
+                    err = clSetKernelArg(kernal, 5, sizeof(int), &_size);
+                    err = clSetKernelArg(kernal, 6, sizeof(void*), &layer_sizes_d);
+                    err = clSetKernelArg(kernal, 7, sizeof(void*), &z_activations_d);
+                    err = clSetKernelArg(kernal, 8, sizeof(void*), &activations_d);
+                    err = clSetKernelArg(kernal, 9, sizeof(void*), &errors_d);
+                    err = clSetKernelArg(kernal, 10, sizeof(void*), &wt_d);
+                    err = clSetKernelArg(kernal, 11, sizeof(void*), &at_d);
+                    err = clSetKernelArg(kernal, 12, sizeof(void*), &weight_gradient_d);
+
+                    cl_event event;
+
+                    size_t global_groups_size = batch_size;
+                    const size_t local_groups_size = 32;
+                    //        err = clEnqueueTask (commandQueue, kernal, 0, nullptr, &event);
+                    err = clEnqueueNDRangeKernel(commandQueue, kernal, 1, nullptr, &global_groups_size, &local_groups_size, 0, nullptr, &event);
+                    clWaitForEvents(1, &event);
+
+                    real_nnt* weight_gradient_h = new float[weights_size * batch_size];
+                    real_nnt* bias_gradient_h = new float[biases_size * batch_size];
+
+                    err = clEnqueueReadBuffer(commandQueue, weight_gradient_d, CL_TRUE, 0, weights_size * sizeof(float), weight_gradient_h, 0, nullptr, nullptr);
+                    err = clEnqueueReadBuffer(commandQueue, errors_d, CL_TRUE, 0, biases_size * sizeof(float), bias_gradient_h, 0, nullptr, nullptr);
+
+                    weight_sum = 0;
+                    for (int i = 0; i < weight_gradient_acculumator.size(); i++) {
+                        weight_gradient_acculumator[i].add(Matrix(weight_gradient_h, weight_sum, weights[i].row_count(), weights[i].col_count()));
+                        weight_sum += weights_sizes[i];
+                    }
+
+                    bias_sum = 0;
+                    for (int i = 0; i < bias_gradient_accumulator.size(); i++) {
+                        bias_gradient_accumulator[i].add(Matrix(bias_gradient_h, bias_sum, biases[i].row_count(), biases[i].col_count()));
+                        bias_sum += biases[i].row_count();
+                    }
+
+                    //                bias_gradient_accumulator[0].print("BGA");
+
+                    err = clReleaseMemObject(input_buffer_d);
+                    err = clReleaseMemObject(output_buffer_d);
+                    err = clReleaseMemObject(weights_sizes_d);
+                    err = clReleaseMemObject(weights_d);
+                    err = clReleaseMemObject(biases_d);
+                    err = clReleaseMemObject(layer_sizes_d);
+                    err = clReleaseMemObject(z_activations_d);
+                    err = clReleaseMemObject(activations_d);
+                    err = clReleaseMemObject(errors_d);
+                    err = clReleaseMemObject(wt_d);
+                    err = clReleaseMemObject(at_d);
+                    err = clReleaseMemObject(weight_gradient_d);
+                    err = clReleaseKernel(kernal);
+
+                    gradient_descent();
+
+                    delete[] weight_gradient_h;
+                    delete[] bias_gradient_h;
+                }
+            }
+            delete[] weights_sizes;
+            delete[] layer_sizes;
+//            weights[1].print("Bias");
         }
 
         void test() {

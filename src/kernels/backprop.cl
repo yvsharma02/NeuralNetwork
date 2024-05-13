@@ -161,7 +161,6 @@ void kernel train(global float* inputs,
     for (int i = layer_count - 2; i > 0; i--) {
 		transpose(get_weight_start(i, weight_sizes, weights), layer_sizes[i + 1], layer_sizes[i], get_weight_start(i, weight_sizes, wt));
 		multiply_matrix(get_weight_start(i, weight_sizes, wt), get_bias_start(i, layer_sizes, errors), get_bias_start(i - 1, layer_sizes, errors), layer_sizes[i], 1, layer_sizes[i + 1]);
-//		i or i - 1?, layer_size?
    	    apply_activation_derivative(get_bias_start(i - 1, layer_sizes, z_activations), layer_sizes[i], 1);
 		multiply_elementwise(get_bias_start(i - 1, layer_sizes, errors), get_bias_start(i - 1, layer_sizes, z_activations), layer_sizes[i], 1);
 	}

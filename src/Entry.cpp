@@ -37,7 +37,7 @@ int main() {
     std::vector<std::pair<NeuralNetwork::Matrix, NeuralNetwork::Matrix>> training_data;
     std::vector<std::pair<NeuralNetwork::Matrix, NeuralNetwork::Matrix>> testing_data;
 
-    for (int i = 0; i < 1024 * 10; i++) {
+    for (int i = 0; i < 1024 * 58; i++) {
         NeuralNetwork::Matrix ip = NeuralNetwork::Matrix(784, 1);
         NeuralNetwork::Matrix op = NeuralNetwork::Matrix(10, 1);
         for (int j = 0; j < x.training_images[i].size(); j++) {
@@ -63,8 +63,8 @@ int main() {
 
     auto device = cl_wrapper::get_devices(cl_wrapper::get_platforms_ids()[0])[0];
     auto context = cl_wrapper::create_context(device);
-    nn.trainGPU(10, 128, *context.context, device.device_id);
-//    nn.train(10, 25);
+    nn.trainGPU(1, 128, *context.context, device.device_id);
+//    nn.train(10, 128);
     nn.test();
     
     return 0;
