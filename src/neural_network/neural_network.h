@@ -148,6 +148,14 @@ namespace NeuralNetwork {
             auto commandQueue = clCreateCommandQueue(context, device_id, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, &err);
             
             while (iterations-- > 0) {
+
+                for (int i = 0; i < weight_gradient_acculumator.size(); i++) {
+                    weight_gradient_acculumator[i].zeroify();
+                }
+                for (int i = 0; i < bias_gradient_accumulator.size(); i++) {
+                    bias_gradient_accumulator[i].zeroify();
+                }
+
                 std::cout << "Iteration: " << iterations << std::endl;
                 auto kernal = clCreateKernel(program, "train", nullptr);
                 int c = 0;
@@ -186,7 +194,7 @@ namespace NeuralNetwork {
                 auto z_activations_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * biases_size * batch_size, nullptr, &err);
                 auto errors_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * biases_size * batch_size, nullptr, &err);
                 auto wt_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * weights_size * batch_size, nullptr, &err);
-                auto at_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * activations_size * batch_size, nullptr, &err);
+                auto at_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * (activations_size - layer_sizes[activations.size() - 1]) * batch_size, nullptr, &err);
                 auto weight_gradient_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * weights_size * batch_size, nullptr, &err);
 
                 
@@ -248,34 +256,21 @@ namespace NeuralNetwork {
 
                 real_nnt* weight_gradient_h = new float[weights_size * batch_size];
                 real_nnt* bias_gradient_h = new float[biases_size * batch_size];
-                real_nnt* wt_h = new float[weights_size * batch_size];
+                real_nnt* at_h = new float[weights_size * batch_size];
                 
                 err = clEnqueueReadBuffer(commandQueue, weight_gradient_d, CL_TRUE, 0, weights_size * sizeof(float), weight_gradient_h, 0, nullptr, nullptr);
                 err = clEnqueueReadBuffer(commandQueue, errors_d, CL_TRUE, 0, biases_size  * sizeof(float), bias_gradient_h, 0, nullptr, nullptr);
-                err = clEnqueueReadBuffer(commandQueue, wt_d, CL_TRUE, 0, weights_size * sizeof(float), wt_h, 0, nullptr, nullptr);
-
-                // int act_sum = 0;
-                // for (int i = 0; i < weights.size(); i++) {
-                //     if (i == 1) {
-                //         Matrix(wt_h, act_sum, weights[i].col_count(), weights[i].row_count()).print("WT");
-                //         weights[i].print("W");
-                //     }
-                //     act_sum += weights_sizes[i];
-                // }
 
                 weight_sum = 0;
                 for (int i = 0; i < weight_gradient_acculumator.size(); i++) {
-                    weight_gradient_acculumator[i] = Matrix(weight_gradient_h, weight_sum, weights[i].row_count(), weights[i].col_count());
+                    weight_gradient_acculumator[i].add(Matrix(weight_gradient_h, weight_sum, weights[i].row_count(), weights[i].col_count()));
                     weight_sum += weights_sizes[i];
                 }
-                weight_gradient_acculumator[2].print("WGA");
-
 
                 bias_sum = 0;
                 for (int i = 0; i < bias_gradient_accumulator.size(); i++) {
-                    bias_gradient_accumulator[i] = Matrix(bias_gradient_h, bias_sum, biases[i].row_count(), biases[i].col_count());
+                    bias_gradient_accumulator[i].add(Matrix(bias_gradient_h, bias_sum, biases[i].row_count(), biases[i].col_count()));
                     bias_sum += biases[i].row_count();
-                    bias_gradient_accumulator[i].print("BGA");
                 }
 
                 err = clReleaseMemObject(input_buffer_d);
@@ -291,6 +286,8 @@ namespace NeuralNetwork {
                 err = clReleaseMemObject(at_d);
                 err = clReleaseMemObject(weight_gradient_d);
                 err = clReleaseKernel(kernal);
+
+                gradient_descent();
 
                 delete[] weight_gradient_h;
                 delete[] bias_gradient_h;

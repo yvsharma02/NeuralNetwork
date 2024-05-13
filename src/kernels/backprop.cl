@@ -167,8 +167,11 @@ void kernel train(global float* inputs,
 	}
 
 	for (int i = layer_count - 2; i >= 0; i--) {
-		transpose(get_activations_start(i, layer_sizes, activations), layer_sizes[i], 1, get_activations_start(i, layer_sizes, at));
-		multiply_matrix(get_bias_start(i, layer_sizes, errors), get_activations_start(i, layer_sizes, at),
+		// for (int j = 0; j < layer_sizes[i]; j++) {
+		// 	get_activations_start(i, layer_sizes, activations)[index2D_to_1D()]
+		// }
+		// transpose(get_activations_start(i, layer_sizes, activations), layer_sizes[i], 1, get_activations_start(i, layer_sizes, at));
+		multiply_matrix(get_bias_start(i, layer_sizes, errors), get_activations_start(i, layer_sizes, activations),
       	get_weight_start(i, weight_sizes, weight_gradient), layer_sizes[i + 1], layer_sizes[i], 1);
 	}
 }
