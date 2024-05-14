@@ -5,7 +5,7 @@
 #include "matrix.h"
 #include "types.h"
 #include "math.h"
-
+#include <stdlib.h>
 #include "cl/cl.h"
 #include "cl_wrapper/cl_helper.h"
 
@@ -17,6 +17,10 @@ float sigmoid(float f) {
 
 float sigmoid_derivative(float f) {
     return sigmoid(f) * (1 - sigmoid(f));
+}
+
+int rand_int(int limit) {
+    return ((rand() << 2) ^ rand()) % limit;
 }
 
 const char* read_kernel(const char* path = "../../../src/kernels/backprop.cl") {
@@ -182,6 +186,22 @@ namespace NeuralNetwork {
             int input_size = training[0].first.row_count();
             int output_size = training[0].second.row_count();
 
+            auto input_buffer_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(real_nnt) * batch_size * input_size, nullptr, &err);
+            auto output_buffer_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(real_nnt) * batch_size * output_size, nullptr, &err);
+            auto weights_sizes_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(int) * weights.size(), nullptr, &err);
+            auto weights_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * weights_size, nullptr, &err);
+            auto biases_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * biases_size, nullptr, &err);
+            auto layer_sizes_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(int) * activations.size() * batch_size, nullptr, &err);
+            auto activations_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * activations_size * batch_size, nullptr, &err);
+            auto z_activations_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * biases_size * batch_size, nullptr, &err);
+            auto errors_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * biases_size * batch_size, nullptr, &err);
+            auto wt_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * weights_size * batch_size, nullptr, &err);
+            auto at_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * (activations_size - layer_sizes[activations.size() - 1]) * batch_size, nullptr, &err);
+            auto weight_gradient_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * weights_size * batch_size, nullptr, &err);
+
+            err = clEnqueueWriteBuffer(commandQueue, weights_sizes_d, CL_TRUE, 0, sizeof(int) * weights.size(), weights_sizes, 0, nullptr, nullptr);
+            err = clEnqueueWriteBuffer(commandQueue, layer_sizes_d, CL_TRUE, 0, sizeof(int) * activations.size(), layer_sizes, 0, nullptr, nullptr);
+
             while (iterations-- > 0) {
 //                std::cout << "Iteration: " << iterations << std::endl;
                 for (int l = 0; l < training.size() / batch_size; l++) {
@@ -195,23 +215,13 @@ namespace NeuralNetwork {
 
                     auto kernal = clCreateKernel(program, "train", nullptr);
 
-                    auto input_buffer_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(real_nnt) * batch_size * input_size, nullptr, &err);
-                    auto output_buffer_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(real_nnt) * batch_size * output_size, nullptr, &err);
-                    auto weights_sizes_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(int) * weights.size(), nullptr, &err);
-                    auto weights_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * weights_size, nullptr, &err);
-                    auto biases_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * biases_size, nullptr, &err);
-                    auto layer_sizes_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(int) * activations.size() * batch_size, nullptr, &err);
-                    auto activations_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * activations_size * batch_size, nullptr, &err);
-                    auto z_activations_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * biases_size * batch_size, nullptr, &err);
-                    auto errors_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * biases_size * batch_size, nullptr, &err);
-                    auto wt_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * weights_size * batch_size, nullptr, &err);
-                    auto at_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * (activations_size - layer_sizes[activations.size() - 1]) * batch_size, nullptr, &err);
-                    auto weight_gradient_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * weights_size * batch_size, nullptr, &err);
+                    
 
 
                     for (int i = 0; i < batch_size; i++) {
-                        auto ip_unrolled = training[l * batch_size + i].first.unravel();
-                        auto op_unrolled = training[l * batch_size + i].second.unravel();
+                        int rand = rand_int(training.size());
+                        auto ip_unrolled = training[rand].first.unravel();
+                        auto op_unrolled = training[rand].second.unravel();
 
                         err = clEnqueueWriteBuffer(commandQueue, input_buffer_d, CL_TRUE, input_size * sizeof(float) * i, input_size * sizeof(float), ip_unrolled, 0, nullptr, nullptr);
                         err = clEnqueueWriteBuffer(commandQueue, output_buffer_d, CL_TRUE, output_size * sizeof(float) * i, output_size * sizeof(float), op_unrolled, 0, nullptr, nullptr);
@@ -234,9 +244,6 @@ namespace NeuralNetwork {
                         bias_sum += biases[i].row_count();
                         delete[] w;
                     }
-
-                    err = clEnqueueWriteBuffer(commandQueue, weights_sizes_d, CL_TRUE, 0, sizeof(int) * weights.size(), weights_sizes, 0, nullptr, nullptr);
-                    err = clEnqueueWriteBuffer(commandQueue, layer_sizes_d, CL_TRUE, 0, sizeof(int) * activations.size(), layer_sizes, 0, nullptr, nullptr);
 
                     err = clSetKernelArg(kernal, 0, sizeof(void*), &input_buffer_d);
                     err = clSetKernelArg(kernal, 1, sizeof(void*), &output_buffer_d);
@@ -306,19 +313,6 @@ namespace NeuralNetwork {
                     //     x.print("Z-Activation");
                     //     z_act_sum += activations[i].row_count();
                     // }
-
-                    err = clReleaseMemObject(input_buffer_d);
-                    err = clReleaseMemObject(output_buffer_d);
-                    err = clReleaseMemObject(weights_sizes_d);
-                    err = clReleaseMemObject(weights_d);
-                    err = clReleaseMemObject(biases_d);
-                    err = clReleaseMemObject(layer_sizes_d);
-                    err = clReleaseMemObject(z_activations_d);
-                    err = clReleaseMemObject(activations_d);
-                    err = clReleaseMemObject(errors_d);
-                    err = clReleaseMemObject(wt_d);
-                    err = clReleaseMemObject(at_d);
-                    err = clReleaseMemObject(weight_gradient_d);
                     err = clReleaseKernel(kernal);
 
                     gradient_descent();
@@ -326,6 +320,21 @@ namespace NeuralNetwork {
                     delete[] bias_gradient_h;
                 }
             }
+
+            err = clReleaseMemObject(input_buffer_d);
+            err = clReleaseMemObject(output_buffer_d);
+            err = clReleaseMemObject(weights_sizes_d);
+            err = clReleaseMemObject(weights_d);
+            err = clReleaseMemObject(biases_d);
+            err = clReleaseMemObject(layer_sizes_d);
+            err = clReleaseMemObject(z_activations_d);
+            err = clReleaseMemObject(activations_d);
+            err = clReleaseMemObject(errors_d);
+            err = clReleaseMemObject(wt_d);
+            err = clReleaseMemObject(at_d);
+            err = clReleaseMemObject(weight_gradient_d);
+            
+
             delete[] weights_sizes;
             delete[] layer_sizes;
         }
