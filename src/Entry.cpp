@@ -4,6 +4,8 @@
 #include "neural_network/neural_network.h"
 #include "reader/data_reader.h"
 #include <cl/cl.h>
+#include <stdlib.h>
+
  int index2D_to_1D(int i, int j, int cols) {
      return i * cols + j;
  }
@@ -47,6 +49,7 @@ ADGJBEHKCFIL
 // }
 
 int main() {
+//    srand(100);
     // int ll = 0;
     // NeuralNetwork::Matrix m(2, 3);
     // for (int i = 0; i < 2; i++) {
@@ -78,7 +81,7 @@ int main() {
     std::vector<std::pair<NeuralNetwork::Matrix, NeuralNetwork::Matrix>> training_data;
     std::vector<std::pair<NeuralNetwork::Matrix, NeuralNetwork::Matrix>> testing_data;
 
-    for (int i = 0; i < 1024 * 58; i++) {
+    for (int i = 0; i < 32 * 1875; i++) {
         NeuralNetwork::Matrix ip = NeuralNetwork::Matrix(784, 1);
         NeuralNetwork::Matrix op = NeuralNetwork::Matrix(10, 1);
         for (int j = 0; j < x.training_images[i].size(); j++) {
@@ -99,12 +102,12 @@ int main() {
 //        op.print();
         testing_data.push_back(std::pair<NeuralNetwork::Matrix, NeuralNetwork::Matrix>(std::move(ip), std::move(op)));
     }
-    NeuralNetwork::Network nn(std::vector<NeuralNetwork::size_nnt>({784, 20, 20, 10}), std::move(training_data), std::move(testing_data), 0.1);
+    NeuralNetwork::Network nn(std::vector<NeuralNetwork::size_nnt>({784, 20, 20, 10}), std::move(training_data), std::move(testing_data), 0.05);
     
 
     auto device = cl_wrapper::get_devices(cl_wrapper::get_platforms_ids()[0])[0];
     auto context = cl_wrapper::create_context(device);
-    nn.trainGPU(10, 128, *context.context, device.device_id);
+    nn.trainGPU(10, 32, *context.context, device.device_id);
 //    nn.train(10, 128);
     nn.test();
     

@@ -78,7 +78,7 @@ namespace NeuralNetwork {
                 biases.push_back(Matrix(layer_sizes[i + 1], 1));
                 errors.push_back(Matrix(layer_sizes[i + 1], 1));
                 weights.push_back(Matrix(layer_sizes[i + 1], layer_sizes[i]));
-                (--weights.end())->randomize(-0.25, 0.75);
+                (--weights.end())->randomize(-0.75, 0.75);
                 weight_gradient.push_back(Matrix(layer_sizes[i + 1], layer_sizes[i]));
             }
 
@@ -120,9 +120,9 @@ namespace NeuralNetwork {
 
 
                     for (int j = 0; j < weight_gradient.size(); j++) {
-                        // if (j != 0) {
-                        //     weight_gradient[j].print("WG");
-                        // }
+                        //  if (j != 0) {
+                        //      weight_gradient[j].print("WG");
+                        //  }
                         weight_gradient_acculumator[j].add(weight_gradient[j], 1.0 / batch_size, 1.0);
                     }
 
@@ -147,6 +147,9 @@ namespace NeuralNetwork {
         }
 
         void trainGPU(int iterations, int batch_size, cl_context& context, cl_device_id& device_id) {
+            if (training.size() % batch_size != 0) {
+                throw std::exception("Training Size must be a multiple of batch size");
+            }
             const char* strings_arr[] = { read_kernel() };
             size_t lens_arr[] = { strlen(strings_arr[0]) };
 
@@ -261,8 +264,8 @@ namespace NeuralNetwork {
                     real_nnt* weight_gradient_h = new float[weights_size * batch_size];
                     real_nnt* bias_gradient_h = new float[biases_size * batch_size];
 
-                    // real_nnt* activation_h = new float[activations_size * batch_size];
-                    // real_nnt* z_act_h = new float[biases_size * batch_size];
+//                    real_nnt* activation_h = new float[activations_size * batch_size];
+//                    real_nnt* z_act_h = new float[biases_size * batch_size];
 
                     err = clEnqueueReadBuffer(commandQueue, weight_gradient_d, CL_TRUE, 0, weights_size * sizeof(float), weight_gradient_h, 0, nullptr, nullptr);
                     err = clEnqueueReadBuffer(commandQueue, errors_d, CL_TRUE, 0, biases_size * sizeof(float), bias_gradient_h, 0, nullptr, nullptr);
@@ -272,8 +275,9 @@ namespace NeuralNetwork {
                     weight_sum = 0;
                     for (int i = 0; i < weight_gradient_acculumator.size(); i++) {
                         auto x = Matrix(weight_gradient_h, weight_sum, weights[i].row_count(), weights[i].col_count());
+                        
 //                        if (i != 0) {
-//                            x.print("Weights");
+//                            x.print("WeightsGradient");
 //                            weights[i].print("Real");
 //                        };
                         weight_gradient_acculumator[i].add(x, 1.0 / batch_size, 1);
