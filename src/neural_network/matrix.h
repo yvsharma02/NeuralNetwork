@@ -238,7 +238,7 @@ namespace NeuralNetwork {
         }
 
         size_t dump_size() const {
-            return rows * cols + 2 * sizeof(size_nnt);
+            return (rows * cols) * sizeof(real_nnt) + 2 * sizeof(size_nnt);
         }
 
         void dump(char* res, size_t start) const {

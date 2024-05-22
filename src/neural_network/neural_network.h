@@ -11,38 +11,6 @@
 
 #include <stdio.h>
 
-float sigmoid(float f) {
-    return 1.0 / (1 + expf(-f));
-}
-
-float sigmoid_derivative(float f) {
-    return sigmoid(f) * (1 - sigmoid(f));
-}
-
-int rand_int(int limit) {
-    return ((rand() << 2) ^ rand()) % limit;
-}
-
-const char* read_kernel(const char* path = "../../../src/kernels/backprop.cl") {
-    char buffer[10000];
-    int c = 0;
-
-    FILE* file = fopen(path, "r");
-    char ch = fgetc(file);
-    while (ch != EOF) {
-        buffer[c++] = ch;
-        ch = fgetc(file);
-    }
-    fclose(file);
-    char* str = new char[c + 1];
-    for (int i = 0; i < c; i++) {
-        str[i] = buffer[i];
-    }
-    str[c] = 0;
-//    std::cout << str << std::endl;
-    return str;
-}
-
 namespace NeuralNetwork {
 
     class Network {
@@ -67,22 +35,27 @@ namespace NeuralNetwork {
         std::vector<std::pair<Matrix, Matrix>> training;
         std::vector<std::pair<Matrix, Matrix>> testing;
 
-        real_nnt learning_rate;
         std::vector<Matrix> weight_gradient_acculumator;
         std::vector<Matrix> bias_gradient_accumulator;
 
         public:
-        Network(std::vector<size_nnt> layer_sizes, std::vector<std::pair<Matrix, Matrix>>&& training, std::vector<std::pair<Matrix, Matrix>>&& testing, real_nnt learning_rate = 0.05) : training(std::move(training)), testing(std::move(testing)), learning_rate(learning_rate) {
+        Network(std::vector<size_nnt> layer_sizes, std::vector<std::pair<Matrix, Matrix>>&& training, std::vector<std::pair<Matrix, Matrix>>&& testing) : training(std::move(training)), testing(std::move(testing)) {
+            init(layer_sizes);
+        }
+
+        void init(const std::vector<size_nnt>& layer_sizes, bool clean_build = true) {
             for (int i = 0; i < layer_sizes.size(); i++) {
                 activations.push_back(Matrix(layer_sizes[i], 1));
             }
-            
+
             for (int i = 0; i < layer_sizes.size() - 1; i++) {
                 z_activations.push_back(Matrix(layer_sizes[i + 1], 1));
-                biases.push_back(Matrix(layer_sizes[i + 1], 1));
                 errors.push_back(Matrix(layer_sizes[i + 1], 1));
-                weights.push_back(Matrix(layer_sizes[i + 1], layer_sizes[i]));
-                (--weights.end())->randomize(-0.75, 0.75);
+                if (clean_build) {
+                    biases.push_back(Matrix(layer_sizes[i + 1], 1));
+                    weights.push_back(Matrix(layer_sizes[i + 1], layer_sizes[i]));
+                    (--weights.end())->randomize(-0.75, 0.75);
+                }
                 weight_gradient.push_back(Matrix(layer_sizes[i + 1], layer_sizes[i]));
             }
 
@@ -95,65 +68,91 @@ namespace NeuralNetwork {
             }
         }
 
-        char* dump() {
-            // Layer Counts
-            // Layer Rows
-            // Weight Matrices
-            // Bias Matrices
+        void dump_to_file(const char* path) const {
+            size_t size;
+            auto dmp = dump(size);
+            write_file(dmp, 0, size, path);
+            delete [] dmp;
+        }
 
-            size_t total_size = 0;
-            for (int i = 0; i < weights.size(); i++) {
-                total_size += weights[i].row_count() * sizeof(real_nnt) * weights[i].col_count();
-            }
-            for (int i = 1; i < activations.size(); i++) {
-                total_size += activations[i].row_count() * sizeof(real_nnt) + sizeof(size_nnt);
-            }
+        void load_from_file(const char* path) {
+            const char* arr = read_file(path);
+            load_from_dump(arr);
+            delete [] arr;
+        }
+
+        char* dump(size_t& total_size) const {
+            // Layer Count
+            // 1st layer size.
+            // Bias Matrices.
+            // Weight Matrices
+
+            total_size = sizeof(size_nnt); // for layer count.
             total_size += sizeof(size_nnt); // for the size of 1st (input) layer.
+            for (int i = 0; i < weights.size(); i++) {
+                total_size += weights[i].dump_size();
+            }
+            for (int i = 0; i < biases.size(); i++) {
+                total_size += biases[i].dump_size();
+            }
+            
         
             char* dump = new char[total_size];
             int c = 0;
-            ((size_t*)dump)[c++] = activations.size() - 1;
-            for (int i = 0; i < activations.size(); i++) {
-                ((size_t*)dump)[c++] = activations[i].row_count();
-            }
-            ((size_t*)dump)[c++] = activations[activations.size() - 1].row_count();
-            for (int i = 0; i < weights.size(); i++) {
-                weights[i].dump(dump, c);
-                c += weights[i].dump_size();
-            }
+            
+            size_nnt activations_size = activations.size();
+            memcpy(dump + c, &activations_size, sizeof(size_nnt));
+            c += sizeof(size_nnt);
+            
+            size_nnt layer_0_size = activations[0].row_count();
+            memcpy(dump + c, &layer_0_size, sizeof(size_nnt));
+            c += sizeof(size_nnt);
+            
             for (int i = 0; i < biases.size(); i++) {
                 biases[i].dump(dump, c);
                 c += biases[i].dump_size();
+            }
+            for (int i = 0; i < weights.size(); i++) {
+                weights[i].dump(dump, c);
+                c += weights[i].dump_size();
             }
 
             return dump;
         }
 
-        void load_from_dump(char* dump) {
+        void load_from_dump(const char* dump) {
 
             this->~Network();
             
             int c = 0;
-            size_t layer_counts = ((size_t*)dump)[c++];
+            size_nnt layer_counts = 0;// ((size_nnt*)dump)[0];
+            memcpy(&layer_counts , dump + c, sizeof(size_nnt));
+            c += sizeof(size_nnt);
 
-            std::vector<size_t> layer_sizes;
-                
-            for (int i = 0; i < layer_counts; i++) {
-                layer_sizes.push_back(((size_t*)dump)[c++]);
+//            layer_counts = std::vector<size_nnt>();
+
+            std::vector<size_nnt> layer_sizes;
+            
+            size_nnt layer_0_size;
+            memcpy(&layer_0_size, dump + c, sizeof(size_nnt));
+            c += sizeof(size_nnt);
+            layer_sizes.push_back(layer_0_size);
+
+            for (int i = 0; i < layer_counts - 1; i++) {
+                biases.push_back(Matrix(0, 0));
+                c += biases[i].load_from_dump(dump, c);
+                layer_sizes.push_back(biases[i].row_count());
             }
 
             for (int i = 0; i < layer_counts - 1; i++) {
                 weights.push_back(Matrix(0,0));
                 c += weights[i].load_from_dump(dump, c);
             }
-
-            for (int i = 0; i < layer_counts - 1; i++) {
-                biases.push_back(Matrix(0, 0));
-                c += biases[i].load_from_dump(dump, c);
-            }
+            init(layer_sizes, false);
+            
         }
 
-        void train(int iterations, int batch_size) {
+        void train(int iterations, int batch_size, real_nnt learning_rate) {
             while (iterations-- > 0) {
 
                 for (int i = 0; i < weight_gradient.size(); i++) {
@@ -170,31 +169,18 @@ namespace NeuralNetwork {
                     foward_pass();
                     errors[errors.size() - 1] = training[i].second.clone();
                     errors[errors.size() - 1].subtract(activations[activations.size() - 1]);
-                    // for (int j = 1; j < activations.size(); j++) {
-                    //     activations[j].print("Activations");
-                    // }
-//                    if (training.size() - i <= 10) {
-//                        training[i].second.print("Actual");
-//                        activations[activations.size() - 1].print("Prediction");
-//                    }
                     backward_pass();
 
-
-
                     for (int j = 0; j < weight_gradient.size(); j++) {
-                        //  if (j != 0) {
-                        //      weight_gradient[j].print("WG");
-                        //  }
                         weight_gradient_acculumator[j].add(weight_gradient[j], 1.0 / batch_size, 1.0);
                     }
 
                     for (int j = 0; j < errors.size(); j++) {
-//                        errors[j].print("BG");
                         bias_gradient_accumulator[j].add(errors[j], 1.0 / batch_size, 1.0);
                     }
 
                     if (i % batch_size == 0) {
-                        gradient_descent();
+                        gradient_descent(learning_rate);
 
                         for (int j = 0; j < weight_gradient.size(); j++) {
                             weight_gradient_acculumator[j].zeroify();
@@ -208,16 +194,19 @@ namespace NeuralNetwork {
             }
         }
 
-        void trainGPU(int iterations, int batch_size, cl_context& context, cl_device_id& device_id) {
+        void trainGPU(int epoch_count, int batch_size, cl_context& context, cl_device_id& device_id, real_nnt learning_rate, bool random_sampling = true) {
             if (training.size() % batch_size != 0) {
                 throw std::exception("Training Size must be a multiple of batch size");
             }
-            const char* strings_arr[] = { read_kernel() };
+            const char* strings_arr[] = { read_file("../../../src/kernels/backprop.cl") };
             size_t lens_arr[] = { strlen(strings_arr[0]) };
 
             auto program = clCreateProgramWithSource(context, 1, strings_arr, lens_arr, nullptr);
             cl_int res = clBuildProgram(program, 1, &device_id, nullptr, nullptr, nullptr);
             cl_int err;
+
+            delete[] strings_arr[0];
+
             auto commandQueue = clCreateCommandQueue(context, device_id, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, &err);
             
             int weights_size = 0;
@@ -260,10 +249,9 @@ namespace NeuralNetwork {
             err = clEnqueueWriteBuffer(commandQueue, weights_sizes_d, CL_TRUE, 0, sizeof(int) * weights.size(), weights_sizes, 0, nullptr, nullptr);
             err = clEnqueueWriteBuffer(commandQueue, layer_sizes_d, CL_TRUE, 0, sizeof(int) * activations.size(), layer_sizes, 0, nullptr, nullptr);
 
-            while (iterations-- > 0) {
-//                std::cout << "Iteration: " << iterations << std::endl;
+            while (epoch_count-- > 0) {
                 for (int l = 0; l < training.size() / batch_size; l++) {
-                    std::cout << "Iteration: " << iterations << "; Batch: " << l << std::endl;
+                    std::cout << "Iteration: " << epoch_count << "; Batch: " << l << std::endl;
                     for (int i = 0; i < weight_gradient_acculumator.size(); i++) {
                         weight_gradient_acculumator[i].zeroify();
                     }
@@ -272,12 +260,10 @@ namespace NeuralNetwork {
                     }
 
                     auto kernal = clCreateKernel(program, "train", nullptr);
-
-                    
-
-
+                    int sample_c = 0;
                     for (int i = 0; i < batch_size; i++) {
-                        int rand = rand_int(training.size());
+                        sample_c = sample_c % training.size();
+                        int rand = random_sampling ? rand_int(training.size()) : sample_c++;
                         auto ip_unrolled = training[rand].first.unravel();
                         auto op_unrolled = training[rand].second.unravel();
 
@@ -322,29 +308,20 @@ namespace NeuralNetwork {
 
                     size_t global_groups_size = batch_size;
                     const size_t local_groups_size = 32;
-                    //        err = clEnqueueTask (commandQueue, kernal, 0, nullptr, &event);
                     err = clEnqueueNDRangeKernel(commandQueue, kernal, 1, nullptr, &global_groups_size, &local_groups_size, 0, nullptr, &event);
                     clWaitForEvents(1, &event);
 
                     real_nnt* weight_gradient_h = new float[weights_size * batch_size];
                     real_nnt* bias_gradient_h = new float[biases_size * batch_size];
 
-//                    real_nnt* activation_h = new float[activations_size * batch_size];
-//                    real_nnt* z_act_h = new float[biases_size * batch_size];
 
                     err = clEnqueueReadBuffer(commandQueue, weight_gradient_d, CL_TRUE, 0, weights_size * sizeof(float), weight_gradient_h, 0, nullptr, nullptr);
                     err = clEnqueueReadBuffer(commandQueue, errors_d, CL_TRUE, 0, biases_size * sizeof(float), bias_gradient_h, 0, nullptr, nullptr);
-                    // err = clEnqueueReadBuffer(commandQueue, activations_d, CL_TRUE, 0, activations_size * sizeof(float), activation_h, 0, nullptr, nullptr);
-                    // err = clEnqueueReadBuffer(commandQueue, z_activations_d, CL_TRUE, 0, biases_size * sizeof(float), z_act_h, 0, nullptr, nullptr);
 
                     weight_sum = 0;
                     for (int i = 0; i < weight_gradient_acculumator.size(); i++) {
                         auto x = Matrix(weight_gradient_h, weight_sum, weights[i].row_count(), weights[i].col_count());
-                        
-//                        if (i != 0) {
-//                            x.print("WeightsGradient");
-//                            weights[i].print("Real");
-//                        };
+
                         weight_gradient_acculumator[i].add(x, 1.0 / batch_size, 1);
                         weight_sum += weights_sizes[i];
                     }
@@ -356,24 +333,9 @@ namespace NeuralNetwork {
                         bias_sum += biases[i].row_count();
                     }
 
-                    // int act_sum = 0;
-                    // for (int i = 0; i < activations.size(); i++) {
-                    //     auto x = Matrix(activation_h, act_sum, activations[i].row_count(), activations[i].col_count());
-                    //     if (i != 0) {
-                    //         x.print("Activation");
-                    //     }
-                    //     act_sum += activations[i].row_count();
-                    // }
-
-                    // int z_act_sum = 0;
-                    // for (int i = 1; i < activations.size(); i++) {
-                    //     auto x = Matrix(z_act_h, z_act_sum, activations[i].row_count(), activations[i].col_count());
-                    //     x.print("Z-Activation");
-                    //     z_act_sum += activations[i].row_count();
-                    // }
                     err = clReleaseKernel(kernal);
 
-                    gradient_descent();
+                    gradient_descent(learning_rate);
                     delete[] weight_gradient_h;
                     delete[] bias_gradient_h;
                 }
@@ -435,7 +397,7 @@ namespace NeuralNetwork {
             }
         }
 
-        void gradient_descent() {
+        void gradient_descent(real_nnt learning_rate) {
             for (int i = 0; i < weights.size(); i++) {
                 weights[i].add(weight_gradient_acculumator[i], learning_rate, 1);
             }

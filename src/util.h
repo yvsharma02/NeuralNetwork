@@ -32,3 +32,16 @@ void write_file(char* data, int start, int size, const char* path) {
 
     fclose(file);
 }
+
+int rand_int(int limit) {
+    int x = ((rand() << 32) ^ rand());
+    return (x < 0 ? -x : x) % limit;
+}
+
+float sigmoid(float f) {
+    return 1.0 / (1 + expf(-f));
+}
+
+float sigmoid_derivative(float f) {
+    return sigmoid(f) * (1 - sigmoid(f));
+}

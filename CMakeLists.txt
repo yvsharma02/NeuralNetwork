@@ -20,15 +20,14 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ../bin)
 
 set(EXECUTABLE_NAME NeuralNetwork)
 
-add_executable(${EXECUTABLE_NAME} src/EntryGPU.cpp "src/cl_wrapper/cl_helper.h")
+add_executable(${EXECUTABLE_NAME}  "src/cl_wrapper/cl_helper.h")
 
 target_sources(${EXECUTABLE_NAME} PRIVATE
 src/Entry.cpp
 src/cl_wrapper/cl_helper.h
 src/reader/data_reader.h
 src/util.h
-src/reader/mnist_reader_common.hpp
-src/EntryGPU.cpp)
+src/reader/mnist_reader_common.hpp)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

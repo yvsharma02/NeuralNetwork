@@ -14,8 +14,15 @@ The code used to read the database is not my own, and is taken from:
 https://github.com/wichtounet/mnist (MIT License)
 
 Entire data is read at once (into main system memory), and may reqruire a large amount of memory. (Around ~4.6 GB)
-Around 86% Accuracy was achieved while training using the following parameters:
+Around 90% Accuracy was achieved while training using the following parameters:
 15 iterations
 64 batch size
-1.25 learning rate.
-2 hidden layers with 20 neurons in each.
+1.35 learning rate.
+2 hidden layers with 64 and 32 neurons respectively.
+
+Adding a 3rd layer started to result in overfitting.
+
+While maintaining as similar conditions as possible, training on GPU resulted in approx 5x performance improvements.
+(~10 mins on CPU vs ~2 min on GPU) (These times do not correspond to the settings mentioned above)
+Training on i7 11800H (Single Thread)
+RTX 3050 Laptop.
