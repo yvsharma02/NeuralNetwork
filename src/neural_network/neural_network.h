@@ -95,6 +95,64 @@ namespace NeuralNetwork {
             }
         }
 
+        char* dump() {
+            // Layer Counts
+            // Layer Rows
+            // Weight Matrices
+            // Bias Matrices
+
+            size_t total_size = 0;
+            for (int i = 0; i < weights.size(); i++) {
+                total_size += weights[i].row_count() * sizeof(real_nnt) * weights[i].col_count();
+            }
+            for (int i = 1; i < activations.size(); i++) {
+                total_size += activations[i].row_count() * sizeof(real_nnt) + sizeof(size_nnt);
+            }
+            total_size += sizeof(size_nnt); // for the size of 1st (input) layer.
+        
+            char* dump = new char[total_size];
+            int c = 0;
+            ((size_t*)dump)[c++] = activations.size() - 1;
+            for (int i = 0; i < activations.size(); i++) {
+                ((size_t*)dump)[c++] = activations[i].row_count();
+            }
+            ((size_t*)dump)[c++] = activations[activations.size() - 1].row_count();
+            for (int i = 0; i < weights.size(); i++) {
+                weights[i].dump(dump, c);
+                c += weights[i].dump_size();
+            }
+            for (int i = 0; i < biases.size(); i++) {
+                biases[i].dump(dump, c);
+                c += biases[i].dump_size();
+            }
+
+            return dump;
+        }
+
+        void load_from_dump(char* dump) {
+
+            this->~Network();
+            
+            int c = 0;
+            size_t layer_counts = ((size_t*)dump)[c++];
+
+            std::vector<size_t> layer_sizes;
+                
+            for (int i = 0; i < layer_counts; i++) {
+                layer_sizes.push_back(((size_t*)dump)[c++]);
+            }
+
+            for (int i = 0; i < layer_counts - 1; i++) {
+                weights.push_back(Matrix(0,0));
+                c += weights[i].load_from_dump(dump, c);
+            }
+
+            for (int i = 0; i < layer_counts - 1; i++) {
+                biases.push_back(Matrix(0, 0));
+                c += biases[i].load_from_dump(dump, c);
+            }
+        }
+
         void train(int iterations, int batch_size) {
             while (iterations-- > 0) {
 

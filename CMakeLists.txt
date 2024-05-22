@@ -26,6 +26,7 @@ target_sources(${EXECUTABLE_NAME} PRIVATE
 src/Entry.cpp
 src/cl_wrapper/cl_helper.h
 src/reader/data_reader.h
+src/util.h
 src/reader/mnist_reader_common.hpp
 src/EntryGPU.cpp)
 
