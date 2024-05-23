@@ -26,3 +26,11 @@ While maintaining as similar conditions as possible, training on GPU resulted in
 (~10 mins on CPU vs ~2 min on GPU) (These times do not correspond to the settings mentioned above)<br/>
 Training on i7 11800H (Single Thread, 16GB Memory)<br/>
 RTX 3050 Laptop. (4GB)<br/>
+
+The trained weights and biases can be dumped into a binary file, which can be loaded in consequent runs, to avoid trainng the model again. <br/>
+The dump file can also be used in "visualize.py" scripts, which converts the weights and biases into grey-scale images. <br/> <br/>
+
+The weights of biases of the trained network visualised as images: <br/>
+(I hoped it will show some patterns or result in something more interesting than just random noise :( )
+
+<img src="https://drive.google.com/file/d/1yT_rdWWjqdcv_Z8O5Ge_rUaUHcZBRySy/" width="512" height="256" />
