@@ -1,6 +1,11 @@
-#include <vector>
+#pragma once
 
+#include <vector>
+#include "neural_network/matrix.h"
+
+//typedef std::vector<std::pair<NeuralNetwork::Matrix, NeuralNetwork::Matrix>> training_set;
 namespace NeuralNetwork {
+
     typedef float real_nnt;
     typedef size_t size_nnt;
     typedef int int_nnt;

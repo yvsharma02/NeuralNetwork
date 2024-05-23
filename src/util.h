@@ -25,17 +25,16 @@ const char* read_file(const char* path, int buffer_size = 1024 * 1024 * 8) {
     return str;
 }
 
-const char* read_file_bin(const char* path, int buffer_size = 1024 * 1024 * 8) {
+
+const char* read_file_bin(const char* path) {
     FILE* f = fopen(path, "rb");
     fseek(f, 0, SEEK_END);
     long fsize = ftell(f);
-    fseek(f, 0, SEEK_SET);  /* same as rewind(f); */
+    fseek(f, 0, SEEK_SET);
 
     char* string = new char[fsize];
     fread(string, fsize, 1, f);
     fclose(f);
-
-//    string[fsize] = 0;
 
     return string;
 }
@@ -50,15 +49,15 @@ void write_file(char* data, int start, int size, const char* path) {
     fclose(file);
 }
 
-    void write_file_bin(char* data, int start, int size, const char* path) {
-        FILE* file = fopen(path, "wb");
-        size_t c = 0;
-        while (c < size) {
-            fputc(data[start + c++], file);
-        }
-
-        fclose(file);
+void write_file_bin(char* data, int start, int size, const char* path) {
+    FILE* file = fopen(path, "wb");
+    size_t c = 0;
+    while (c < size) {
+        fputc(data[start + c++], file);
     }
+
+    fclose(file);
+}
 
 
 int rand_int(int limit) {
