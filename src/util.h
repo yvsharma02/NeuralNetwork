@@ -61,9 +61,9 @@ void write_file_bin(char* data, int start, int size, const char* path) {
 
 
 int rand_int(int limit) {
-//    int x = ((rand() << 32) ^ rand());
-//    return (x < 0 ? -x : x) % limit;
-    return ((rand() << 2) ^ rand()) % limit;
+   int x = ((rand() << 32) ^ rand());
+   return (x < 0 ? -x : x) % limit;
+//    return ((rand() << 2) ^ rand()) % limit;
 }
 
 float sigmoid(float f) {

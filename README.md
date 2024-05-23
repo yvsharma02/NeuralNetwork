@@ -19,10 +19,10 @@ Around 90% Accuracy was achieved while training using the following parameters:<
 64 batch size<br/>
 1.35 learning rate.<br/>
 2 hidden layers with 64 and 32 neurons respectively.<br/>
-
 Adding a 3rd layer started to result in overfitting.<br/>
+(Above example took around 200 sec to train) <br/>
 
 While maintaining as similar conditions as possible, training on GPU resulted in approx 5x performance improvements.<br/>
 (~10 mins on CPU vs ~2 min on GPU) (These times do not correspond to the settings mentioned above)<br/>
-Training on i7 11800H (Single Thread)<br/>
-RTX 3050 Laptop.<br/>
+Training on i7 11800H (Single Thread, 16GB Memory)<br/>
+RTX 3050 Laptop. (4GB)<br/>

@@ -44,20 +44,21 @@ int main() {
     auto device = cl_wrapper::get_devices(cl_wrapper::get_platforms_ids()[0])[0];
     auto context = cl_wrapper::create_context(device);
     
-    const char* dump_path = "../../../pre_trained_dump__2.bin";
-
+    const char* dump_path = "../../../pre_trained_dump.bin";
+    /*
     NeuralNetwork::Network original(std::vector<NeuralNetwork::size_nnt>({784, 64, 32, 10}));
-      std::cout << "Training" << std::endl;
+    std::cout << "Training" << std::endl;
     original.trainGPU(7, batch_size, *context.context, device.device_id, 5.2, training_data);
 
     original.dump_to_file(dump_path);
-    
+    */
+
     NeuralNetwork::Network recovered = NeuralNetwork::Network::create_form_dump(dump_path);
-    
-    original.test(testing_data);
 
     std::cout << "Testing" << std::endl;
+//    original.test(testing_data);
     recovered.test(testing_data);
-    
+    std::cout << "Cleaning Up." << std::endl;
+
     return 0;
 }
