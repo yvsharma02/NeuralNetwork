@@ -33,4 +33,4 @@ The dump file can also be used in "visualize.py" scripts, which converts the wei
 The weights of biases of the trained network visualised as images: <br/>
 (I hoped it will show some patterns or result in something more interesting than just random noise :( )
 
-<img src="https://drive.google.com/file/d/1yT_rdWWjqdcv_Z8O5Ge_rUaUHcZBRySy/" width="512" height="256" />
+<img src="https://i.imgur.com/gacDtSb.png" width="512" height="256" />
