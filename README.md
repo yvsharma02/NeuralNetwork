@@ -1,4 +1,4 @@
-A simple feed-forward neural network, which can support multiple layers of varying sizes each.
+A simple OpenCL based general purpose feed-forward multi-layerd neural network, which trains on GPU.
 Uses sigmoid activation for each layer. This can be easily changed, although chosing a different activaiton funcion for different layers may require some effort.
 
 Backpropogation is implemented on GPU using OpenCL. A CPU based implementation is also present to make sure things are working correctly. <br/>
