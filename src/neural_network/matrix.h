@@ -32,7 +32,7 @@ namespace NeuralNetwork {
             return data;
         }
 
-        real_nnt* unravel() {
+        real_nnt* unravel() const {
             real_nnt* res = new real_nnt[rows * cols];
             int c = 0;
             for (int i = 0; i < rows; i++) {
@@ -67,7 +67,7 @@ namespace NeuralNetwork {
             }
         }
 
-        void max_index(int& r, int& c) {
+        void max_index(int& r, int& c) const {
             r = 0;
             c = 0;
             for (int i = 0; i < rows; i++) {
@@ -244,7 +244,9 @@ namespace NeuralNetwork {
         void dump(char* res, size_t start) const {
            memcpy(res + start, &rows, sizeof(size_nnt));
            memcpy(res + start + sizeof(size_nnt), &cols, sizeof(size_nnt));
-           memcpy(res + start + 2 * sizeof(size_nnt), data, rows * cols * sizeof(real_nnt));
+           for (int i = 0; i < rows; i++) {
+               memcpy(res + start + 2 * sizeof(size_nnt) + sizeof(real_nnt) * cols * i, data[i], sizeof(real_nnt) * cols);
+           }
        }
 
         void save_to_file(const char* file) const {
@@ -265,21 +267,21 @@ namespace NeuralNetwork {
             }
 
             //const char* dump = read_file(file);
-            rows = ((size_t*)dump)[start + 0];
-            cols = ((size_t*)dump)[1];
+            memcpy(&rows, dump + start, sizeof(size_nnt));
+            memcpy(&cols, dump + start + sizeof(size_nnt), sizeof(size_nnt));
+//            rows = ((size_t*)dump)[start + 0];
+//            cols = ((size_t*)dump)[1];
 
-            real_nnt* casted = (real_nnt*) (dump + 2 * sizeof(size_t));
+            real_nnt* casted = (real_nnt*) (dump + start + 2 * sizeof(size_t));
             int c = 0;
 
             data = new real_nnt*[rows];
             for (int i = 0; i < rows; i++) {
                 data[i] = new real_nnt[cols];
-                for (int j = 0; j < cols; j++) {
-                    data[i][j] = casted[c++];
-                }
+                memcpy(data[i], &casted[i * cols], sizeof(real_nnt) * cols);
             }
 
-            return rows * cols;
+            return dump_size();
         }
 
         Matrix(const Matrix& copy) = delete;

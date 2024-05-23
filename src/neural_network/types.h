@@ -2,7 +2,7 @@
 
 namespace NeuralNetwork {
     typedef float real_nnt;
-    typedef int size_nnt;
+    typedef size_t size_nnt;
     typedef int int_nnt;
 
     typedef int32_t dump_type;

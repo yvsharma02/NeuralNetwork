@@ -32,15 +32,43 @@ namespace NeuralNetwork {
         std::vector<Matrix> weights;
         std::vector<Matrix> biases;
 
-        std::vector<std::pair<Matrix, Matrix>> training;
-        std::vector<std::pair<Matrix, Matrix>> testing;
+        const std::vector<std::pair<Matrix, Matrix>>& training;
+        const std::vector<std::pair<Matrix, Matrix>>& testing;
 
         std::vector<Matrix> weight_gradient_acculumator;
         std::vector<Matrix> bias_gradient_accumulator;
 
         public:
-        Network(std::vector<size_nnt> layer_sizes, std::vector<std::pair<Matrix, Matrix>>&& training, std::vector<std::pair<Matrix, Matrix>>&& testing) : training(std::move(training)), testing(std::move(testing)) {
+        Network(std::vector<size_nnt> layer_sizes, const std::vector<std::pair<Matrix, Matrix>>& training, const std::vector<std::pair<Matrix, Matrix>>& testing) : training(std::move(training)), testing(std::move(testing)) {
             init(layer_sizes);
+        }
+
+        Network(const char* dump, const std::vector<std::pair<Matrix, Matrix>>& training, const std::vector<std::pair<Matrix, Matrix>>& testing) : training(std::move(training)), testing(std::move(testing)) {
+            int c = 0;
+            size_nnt layer_counts = 0;
+            memcpy(&layer_counts, dump + c, sizeof(size_nnt));
+            c += sizeof(size_nnt);
+
+            std::vector<size_nnt> layer_sizes;
+
+            size_nnt layer_0_size;
+            memcpy(&layer_0_size, dump + c, sizeof(size_nnt));
+            c += sizeof(size_nnt);
+            layer_sizes.push_back(layer_0_size);
+
+            for (int i = 0; i < layer_counts - 1; i++) {
+                biases.push_back(Matrix(0, 0));
+                c += biases[i].load_from_dump(dump, c);
+                layer_sizes.push_back(biases[i].row_count());
+            }
+
+            for (int i = 0; i < layer_counts - 1; i++) {
+                weights.push_back(Matrix(0, 0));
+                c += weights[i].load_from_dump(dump, c);
+            }
+
+            init(layer_sizes, false);
+
         }
 
         void init(const std::vector<size_nnt>& layer_sizes, bool clean_build = true) {
@@ -68,20 +96,20 @@ namespace NeuralNetwork {
             }
         }
 
-        void dump_to_file(const char* path) const {
+        void dump_to_file(const char* path)  {
             size_t size;
             auto dmp = dump(size);
-            write_file(dmp, 0, size, path);
+            write_file_bin(dmp, 0, size, path);
             delete [] dmp;
         }
 
-        void load_from_file(const char* path) {
-            const char* arr = read_file(path);
-            load_from_dump(arr);
-            delete [] arr;
-        }
+        // void load_from_file(const char* path) {
+        //     const char* arr = read_file_bin(path);
+        //     load_from_dump(arr);
+        //     delete [] arr;
+        // }
 
-        char* dump(size_t& total_size) const {
+        char* dump(size_t& total_size)  {
             // Layer Count
             // 1st layer size.
             // Bias Matrices.
@@ -117,39 +145,8 @@ namespace NeuralNetwork {
                 c += weights[i].dump_size();
             }
 
+//            load_from_dump(dump);
             return dump;
-        }
-
-        void load_from_dump(const char* dump) {
-
-            this->~Network();
-            
-            int c = 0;
-            size_nnt layer_counts = 0;// ((size_nnt*)dump)[0];
-            memcpy(&layer_counts , dump + c, sizeof(size_nnt));
-            c += sizeof(size_nnt);
-
-//            layer_counts = std::vector<size_nnt>();
-
-            std::vector<size_nnt> layer_sizes;
-            
-            size_nnt layer_0_size;
-            memcpy(&layer_0_size, dump + c, sizeof(size_nnt));
-            c += sizeof(size_nnt);
-            layer_sizes.push_back(layer_0_size);
-
-            for (int i = 0; i < layer_counts - 1; i++) {
-                biases.push_back(Matrix(0, 0));
-                c += biases[i].load_from_dump(dump, c);
-                layer_sizes.push_back(biases[i].row_count());
-            }
-
-            for (int i = 0; i < layer_counts - 1; i++) {
-                weights.push_back(Matrix(0,0));
-                c += weights[i].load_from_dump(dump, c);
-            }
-            init(layer_sizes, false);
-            
         }
 
         void train(int iterations, int batch_size, real_nnt learning_rate) {
@@ -409,4 +406,4 @@ namespace NeuralNetwork {
 
     };
 
-};
+}
